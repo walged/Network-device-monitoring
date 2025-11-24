@@ -1,0 +1,104 @@
+{
+  "name": "network-monitor",
+  "version": "1.0.0",
+  "description": "Network Device Monitoring Application",
+  "main": "electron-prod.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:react\" \"npm run electron\"",
+    "electron": "electron .",
+    "dev:electron": "set NODE_ENV=development && electron .",
+    "dev:react": "webpack serve --config webpack.simple.config.js",
+    "build": "webpack --config webpack.prod.config.js",
+    "build:electron": "electron-builder --config electron-builder.json",
+    "start": "electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win --config electron-builder.json",
+    "dist:portable": "npm run build && electron-builder --win portable --config electron-builder.json"
+  },
+  "keywords": [
+    "network",
+    "monitoring",
+    "electron",
+    "react"
+  ],
+  "author": "Network Monitor",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "@types/recharts": "^1.8.29",
+    "antd": "^6.0.0",
+    "autoprefixer": "^10.4.22",
+    "axios": "^1.13.2",
+    "better-sqlite3": "^12.4.6",
+    "dayjs": "^1.11.10",
+    "electron-store": "^11.0.2",
+    "i18next": "^25.6.3",
+    "net-snmp": "^3.26.0",
+    "node-notifier": "^10.0.1",
+    "node-ssh": "^13.2.1",
+    "ping": "^1.0.0",
+    "postcss": "^8.5.6",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-i18next": "^16.3.5",
+    "react-router-dom": "^7.9.6",
+    "recharts": "^3.5.0",
+    "ssh2": "^1.17.0",
+    "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/net-snmp": "^3.23.0",
+    "@types/node": "^20.11.5",
+    "@types/node-notifier": "^8.0.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@types/ssh2": "^1.15.5",
+    "concurrently": "^8.2.2",
+    "css-loader": "^7.1.2",
+    "electron": "^33.4.0",
+    "electron-builder": "^24.13.3",
+    "html-webpack-plugin": "^5.6.3",
+    "process": "^0.11.10",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.1"
+  },
+  "build": {
+    "appId": "com.networkmonitor.app",
+    "productName": "Network Monitor",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.ico"
+    },
+    "portable": {
+      "artifactName": "NetworkMonitor-Portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "NetworkMonitor-Setup.exe"
+    }
+  }
+}

@@ -1,0 +1,565 @@
+import { useEffect, useState } from 'react';
+
+// Типизация для Electron API
+interface ElectronAPI {
+  database: {
+    getDevices: () => Promise<any>;
+    addDevice: (device: any) => Promise<any>;
+    updateDevice: (id: number, device: any) => Promise<any>;
+    deleteDevice: (id: number) => Promise<any>;
+    getDeviceHistory: (deviceId: number) => Promise<any>;
+    getEvents: (limit?: number) => Promise<any>;
+    getHistory: (limit?: number) => Promise<any>;
+  };
+  monitoring: {
+    startMonitoring: () => Promise<any>;
+    stopMonitoring: () => Promise<any>;
+    pingDevice: (ip: string) => Promise<any>;
+    getSNMPData: (ip: string, community: string) => Promise<any>;
+    getStatus: () => Promise<any>;
+  };
+  on: (channel: string, callback: (...args: any[]) => void) => void;
+  removeListener: (channel: string, callback: (...args: any[]) => void) => void;
+  settings: {
+    get: (key: string) => Promise<any>;
+    set: (key: string, value: any) => Promise<any>;
+    getAll: () => Promise<any>;
+  };
+  system: {
+    showNotification: (title: string, body: string) => Promise<any>;
+    exportData: (format: string) => Promise<any>;
+    importData: (data: any) => Promise<any>;
+  };
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI;
+  }
+}
+
+export const useElectronAPI = () => {
+  const [api, setApi] = useState<ElectronAPI | null>(null);
+
+  useEffect(() => {
+    // Проверяем доступность API
+    if (window.electronAPI) {
+      setApi(window.electronAPI);
+    } else {
+      // В режиме разработки создаем mock API
+      console.warn('Electron API not available, using localStorage mock');
+      setApi(createLocalStorageAPI());
+    }
+  }, []);
+
+  return { api };
+};
+
+// Mock API используя localStorage для персистентности
+const createLocalStorageAPI = (): ElectronAPI => {
+  // Инициализируем localStorage если пусто
+  if (!localStorage.getItem('devices')) {
+    localStorage.setItem('devices', JSON.stringify([
+      {
+        id: 1,
+        name: 'Switch-01',
+        ip: '192.168.1.1',
+        type: 'switch',
+        vendor: 'tplink',
+        location: 'Серверная',
+        port_count: 24,
+        current_status: 'online',
+        monitoring_enabled: true,
+      },
+      {
+        id: 2,
+        name: 'Switch-02',
+        ip: '192.168.1.2',
+        type: 'switch',
+        vendor: 'cisco',
+        location: 'Офис',
+        port_count: 48,
+        current_status: 'offline',
+        monitoring_enabled: true,
+      },
+    ]));
+  }
+
+  if (!localStorage.getItem('settings')) {
+    localStorage.setItem('settings', JSON.stringify({
+      theme: 'light',
+      language: 'ru',
+      notification_enabled: 'true',
+      ping_interval: '60',
+      ping_timeout: '5',
+      alert_sound: 'true',
+    }));
+  }
+
+  // Инициализация событий
+  if (!localStorage.getItem('events')) {
+    localStorage.setItem('events', JSON.stringify([]));
+  }
+
+  // Инициализация истории
+  if (!localStorage.getItem('history')) {
+    localStorage.setItem('history', JSON.stringify([]));
+  }
+
+  const listeners: { [key: string]: ((...args: any[]) => void)[] } = {};
+
+  const emit = (channel: string, ...args: any[]) => {
+    if (listeners[channel]) {
+      listeners[channel].forEach(callback => callback(...args));
+    }
+  };
+
+  // Функция для добавления событий
+  const addEvent = (type: string, message: string, deviceName?: string, deviceId?: number) => {
+    const events = JSON.parse(localStorage.getItem('events') || '[]');
+    const newEvent = {
+      id: Date.now(),
+      event_type: type,
+      message: message,
+      device_name: deviceName || '',
+      device_id: deviceId,
+      timestamp: new Date().toISOString()
+    };
+    events.unshift(newEvent); // Добавляем в начало
+    // Храним максимум 100 последних событий
+    if (events.length > 100) {
+      events.pop();
+    }
+    localStorage.setItem('events', JSON.stringify(events));
+    emit('event-added', newEvent);
+    return newEvent;
+  };
+
+  // Функция для добавления записи истории
+  const addHistory = (deviceId: number, status: string, responseTime?: number) => {
+    const history = JSON.parse(localStorage.getItem('history') || '[]');
+    const newHistory = {
+      device_id: deviceId,
+      status: status,
+      response_time: responseTime || 0,
+      timestamp: new Date().toISOString()
+    };
+    history.push(newHistory);
+    // Храним историю за последние 24 часа
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const filteredHistory = history.filter((h: any) => new Date(h.timestamp) > oneDayAgo);
+    localStorage.setItem('history', JSON.stringify(filteredHistory));
+    return newHistory;
+  };
+
+  return {
+    database: {
+      getDevices: async () => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          return { success: true, data: devices };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      addDevice: async (device: any) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          console.log('Current devices before adding:', devices);
+
+          const newDevice = {
+            ...device,
+            id: Date.now(),
+            current_status: 'unknown',
+            created_at: new Date().toISOString(),
+          };
+
+          devices.push(newDevice);
+          localStorage.setItem('devices', JSON.stringify(devices));
+
+          // Проверяем, что устройство действительно сохранилось
+          const savedDevices = JSON.parse(localStorage.getItem('devices') || '[]');
+          console.log('Devices after adding:', savedDevices);
+          console.log('New device added:', newDevice);
+
+          // Добавляем событие
+          addEvent('info', `Устройство "${newDevice.name}" добавлено`, newDevice.name, newDevice.id);
+
+          emit('device-added', newDevice);
+          return { success: true, data: newDevice };
+        } catch (error) {
+          console.error('Error adding device:', error);
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      updateDevice: async (id: number, device: any) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const index = devices.findIndex((d: any) => d.id === id);
+          if (index !== -1) {
+            devices[index] = { ...devices[index], ...device };
+            localStorage.setItem('devices', JSON.stringify(devices));
+            emit('device-updated', devices[index]);
+            return { success: true, data: true };
+          }
+          return { success: false, error: 'Device not found' };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      deleteDevice: async (id: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const filtered = devices.filter((d: any) => d.id !== id);
+          localStorage.setItem('devices', JSON.stringify(filtered));
+          emit('device-deleted', id);
+          return { success: true, data: true };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      getDeviceHistory: async (deviceId: number) => {
+        const history = JSON.parse(localStorage.getItem('history') || '[]');
+        const deviceHistory = history.filter((h: any) => h.device_id === deviceId);
+        return { success: true, data: deviceHistory };
+      },
+      getEvents: async () => {
+        const events = JSON.parse(localStorage.getItem('events') || '[]');
+        return { success: true, data: events };
+      },
+      getHistory: async () => {
+        const history = JSON.parse(localStorage.getItem('history') || '[]');
+        return { success: true, data: history };
+      },
+    },
+    monitoring: {
+      startMonitoring: async () => {
+        localStorage.setItem('monitoringStatus', 'running');
+        emit('monitoring-status-changed', { isRunning: true });
+
+        // Периодическая проверка устройств
+        const checkDevices = async () => {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+
+          for (const device of devices) {
+            let isOnline = false;
+            let responseTime = 0;
+
+            // Try to use real ping if available
+            if (window.electronAPI?.monitoring?.pingDevice) {
+              try {
+                const pingResult = await window.electronAPI.monitoring.pingDevice(device.ip);
+                if (pingResult.success) {
+                  isOnline = pingResult.data.alive;
+                  responseTime = pingResult.data.time || 0;
+                }
+              } catch (error) {
+                console.error(`Failed to ping ${device.ip}:`, error);
+                // Fallback to simulation
+                isOnline = Math.random() > 0.2;
+                responseTime = isOnline ? Math.floor(Math.random() * 50) + 1 : 0;
+              }
+            } else {
+              // Simulation for browser testing
+              isOnline = Math.random() > 0.2;
+              responseTime = isOnline ? Math.floor(Math.random() * 50) + 1 : 0;
+            }
+
+            const previousStatus = device.current_status;
+            const newStatus = isOnline ? 'online' : 'offline';
+
+            const updatedDevice = {
+              ...device,
+              current_status: newStatus,
+              status: newStatus,
+              last_response_time: responseTime,
+              lastCheck: new Date().toISOString()
+            };
+
+            // Логируем изменение статуса и отправляем уведомления
+            if (previousStatus !== newStatus) {
+              const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+              const notificationsEnabled = settings.notification_enabled === 'true';
+
+              if (newStatus === 'offline') {
+                addEvent('error', `Устройство "${device.name}" недоступно`, device.name, device.id);
+
+                // Send notification if enabled
+                if (notificationsEnabled) {
+                  if (window.electronAPI?.system?.showNotification) {
+                    // Use Electron notification
+                    window.electronAPI.system.showNotification(
+                      'Устройство недоступно',
+                      `${device.name} (${device.ip}) не отвечает`
+                    );
+                  } else if ('Notification' in window && Notification.permission === 'granted') {
+                    // Use browser notification as fallback
+                    new Notification('⚠️ Устройство недоступно', {
+                      body: `${device.name} (${device.ip}) не отвечает`,
+                      icon: '/assets/icons/icon.png'
+                    });
+                  }
+                }
+              } else if (previousStatus === 'offline') {
+                addEvent('success', `Устройство "${device.name}" снова в сети`, device.name, device.id);
+
+                // Send notification if enabled
+                if (notificationsEnabled) {
+                  if (window.electronAPI?.system?.showNotification) {
+                    // Use Electron notification
+                    window.electronAPI.system.showNotification(
+                      'Устройство в сети',
+                      `${device.name} (${device.ip}) снова доступно`
+                    );
+                  } else if ('Notification' in window && Notification.permission === 'granted') {
+                    // Use browser notification as fallback
+                    new Notification('✅ Устройство в сети', {
+                      body: `${device.name} (${device.ip}) снова доступно`,
+                      icon: '/assets/icons/icon.png'
+                    });
+                  }
+                }
+              }
+            }
+
+            // Добавляем в историю
+            addHistory(device.id, newStatus, responseTime);
+
+            const index = devices.findIndex((d: any) => d.id === device.id);
+            if (index !== -1) {
+              devices[index] = updatedDevice;
+            }
+
+            emit('device-status-changed', {
+              device_id: device.id,
+              status: updatedDevice.current_status,
+              response_time: updatedDevice.last_response_time
+            });
+          }
+
+          localStorage.setItem('devices', JSON.stringify(devices));
+        };
+
+        // Проверяем устройства сразу при запуске
+        checkDevices();
+
+        // Сохраняем интервал для последующей остановки
+        const intervalId = setInterval(() => {
+          if (localStorage.getItem('monitoringStatus') === 'running') {
+            checkDevices();
+          }
+        }, 30000); // Проверка каждые 30 секунд
+
+        localStorage.setItem('monitoringInterval', intervalId.toString());
+
+        return { success: true };
+      },
+      stopMonitoring: async () => {
+        localStorage.setItem('monitoringStatus', 'stopped');
+
+        // Останавливаем интервал, если он существует
+        const intervalId = localStorage.getItem('monitoringInterval');
+        if (intervalId) {
+          clearInterval(parseInt(intervalId));
+          localStorage.removeItem('monitoringInterval');
+        }
+
+        emit('monitoring-status-changed', { isRunning: false });
+        return { success: true };
+      },
+      pingDevice: async (ip: string) => {
+        // Check if we're in Electron environment with real ping support
+        if (window.electronAPI?.monitoring?.pingDevice) {
+          try {
+            // Use real Electron API if available
+            return await window.electronAPI.monitoring.pingDevice(ip);
+          } catch (error) {
+            console.error('Real ping error:', error);
+            // Fallback to simulation if real ping fails
+          }
+        }
+
+        // Simulation for browser testing
+        const alive = Math.random() > 0.2;
+        const time = alive ? Math.floor(Math.random() * 50) + 1 : 0;
+
+        // Update device status in local storage
+        const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+        const device = devices.find((d: any) => d.ip === ip);
+        if (device) {
+          const newStatus = alive ? 'online' : 'offline';
+          if (device.current_status !== newStatus) {
+            // Log status change
+            if (newStatus === 'offline') {
+              addEvent('error', `Устройство "${device.name}" недоступно`, device.name, device.id);
+            } else if (device.current_status === 'offline') {
+              addEvent('success', `Устройство "${device.name}" снова в сети`, device.name, device.id);
+            }
+          }
+
+          // Add to history
+          addHistory(device.id, newStatus, time);
+
+          // Emit status change
+          emit('device-status-changed', {
+            device_id: device.id,
+            status: newStatus,
+            response_time: time
+          });
+        }
+
+        return {
+          success: true,
+          data: { alive, time },
+        };
+      },
+      getSNMPData: async (ip: string, community: string = 'public') => {
+        // Check if we're in Electron environment with real SNMP support
+        if (window.electronAPI?.monitoring?.getSNMPData) {
+          try {
+            // Use real Electron API if available
+            return await window.electronAPI.monitoring.getSNMPData(ip, community);
+          } catch (error) {
+            console.error('Real SNMP error:', error);
+            // Fallback to simulation if real SNMP fails
+          }
+        }
+
+        // Simulation for browser testing
+        const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+        const device = devices.find((d: any) => d.ip === ip);
+
+        if (!device) {
+          return {
+            success: false,
+            error: 'Device not found',
+          };
+        }
+
+        // Generate mock SNMP data based on device type
+        const mockData: any = {
+          systemInfo: {
+            name: device.name,
+            description: `${device.vendor || 'Generic'} ${device.type}`,
+            location: device.location || 'Unknown',
+            uptime: `${Math.floor(Math.random() * 30)}д ${Math.floor(Math.random() * 24)}ч`,
+          },
+        };
+
+        // Add port information for switches
+        if (device.type === 'switch' && device.port_count) {
+          const ports = [];
+          for (let i = 1; i <= device.port_count; i++) {
+            ports.push({
+              portNumber: i,
+              status: Math.random() > 0.3 ? 'up' : 'down',
+              speed: 1000000000, // 1 Gbps
+              description: `Port ${i}`,
+              rxBytes: Math.floor(Math.random() * 1000000000),
+              txBytes: Math.floor(Math.random() * 1000000000),
+              errors: Math.floor(Math.random() * 10),
+            });
+          }
+          mockData.ports = {
+            ports,
+            totalPorts: device.port_count,
+            activePorts: ports.filter(p => p.status === 'up').length,
+          };
+        }
+
+        return {
+          success: true,
+          data: mockData,
+        };
+      },
+      getStatus: async () => ({
+        success: true,
+        data: {
+          isRunning: localStorage.getItem('monitoringStatus') === 'running',
+          monitoredDevices: JSON.parse(localStorage.getItem('devices') || '[]').length
+        },
+      }),
+    },
+    on: (channel: string, callback: (...args: any[]) => void) => {
+      if (!listeners[channel]) {
+        listeners[channel] = [];
+      }
+      listeners[channel].push(callback);
+    },
+    removeListener: (channel: string, callback: (...args: any[]) => void) => {
+      if (listeners[channel]) {
+        listeners[channel] = listeners[channel].filter(cb => cb !== callback);
+      }
+    },
+    settings: {
+      get: async (key: string) => {
+        const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+        return { success: true, data: settings[key] };
+      },
+      set: async (key: string, value: any) => {
+        const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+        settings[key] = value;
+        localStorage.setItem('settings', JSON.stringify(settings));
+
+        // Применяем настройки сразу
+        if (key === 'theme') {
+          document.documentElement.setAttribute('data-theme', value);
+          if (value === 'dark') {
+            document.body.classList.add('dark-theme');
+          } else {
+            document.body.classList.remove('dark-theme');
+          }
+        }
+
+        if (key === 'language') {
+          // Тут можно добавить смену языка через i18n
+          emit('language-changed', value);
+        }
+
+        emit('settings-changed', { key, value });
+        return { success: true };
+      },
+      getAll: async () => {
+        const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+        return { success: true, data: settings };
+      },
+    },
+    system: {
+      showNotification: async (title: string, body: string) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(title, { body });
+        }
+        return { success: true };
+      },
+      exportData: async (format: string) => {
+        const devices = localStorage.getItem('devices') || '[]';
+        const settings = localStorage.getItem('settings') || '{}';
+        const data = JSON.stringify({ devices: JSON.parse(devices), settings: JSON.parse(settings) }, null, 2);
+
+        // Создаем загружаемый файл
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `network-monitor-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        return { success: true, data };
+      },
+      importData: async (data: any) => {
+        try {
+          if (data.devices) {
+            localStorage.setItem('devices', JSON.stringify(data.devices));
+          }
+          if (data.settings) {
+            localStorage.setItem('settings', JSON.stringify(data.settings));
+          }
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+  };
+};

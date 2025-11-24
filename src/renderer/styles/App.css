@@ -1,0 +1,252 @@
+.logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1890ff;
+  border-bottom: 1px solid #f0f0f0;
+  background: rgba(24, 144, 255, 0.05);
+}
+
+.trigger {
+  padding: 0 24px;
+  font-size: 18px;
+  line-height: 64px;
+  cursor: pointer;
+  transition: color 0.3s;
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+.trigger:hover {
+  color: #1890ff;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.monitoring-control {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.monitoring-btn {
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.monitoring-btn:hover {
+  border-color: #40a9ff;
+  color: #40a9ff;
+}
+
+.monitoring-btn.active {
+  background: #52c41a;
+  border-color: #52c41a;
+  color: white;
+}
+
+.monitoring-btn.active:hover {
+  background: #73d13d;
+  border-color: #73d13d;
+}
+
+/* Ant Design customizations */
+.ant-layout-sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.ant-card {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.ant-statistic-title {
+  color: #8c8c8c;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Status indicators */
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.status-indicator.online {
+  background: #52c41a;
+  box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.2);
+}
+
+.status-indicator.offline {
+  background: #ff4d4f;
+  box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.2);
+}
+
+.status-indicator.warning {
+  background: #faad14;
+  box-shadow: 0 0 0 3px rgba(250, 173, 20, 0.2);
+}
+
+.status-indicator.unknown {
+  background: #d9d9d9;
+  box-shadow: 0 0 0 3px rgba(217, 217, 217, 0.2);
+}
+
+/* Device cards */
+.device-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.device-card:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+.device-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.device-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.device-card-meta {
+  display: flex;
+  gap: 16px;
+  color: #8c8c8c;
+  font-size: 14px;
+}
+
+/* Charts */
+.chart-container {
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ant-layout-sider {
+    position: fixed !important;
+    height: 100vh;
+    z-index: 999;
+  }
+
+  .monitoring-control {
+    display: none;
+  }
+
+  .ant-card {
+    margin-bottom: 16px;
+  }
+}
+
+/* Loading states */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 400px;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Dark theme overrides */
+body.dark-theme .logo {
+  background: rgba(24, 144, 255, 0.1);
+  border-bottom-color: #374151;
+}
+
+body.dark-theme .monitoring-control {
+  background: rgba(31, 41, 55, 0.95);
+  border-top-color: #374151;
+}
+
+body.dark-theme .monitoring-btn {
+  background: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+body.dark-theme .monitoring-btn:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+}
+
+body.dark-theme .ant-card {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark-theme .device-card {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark-theme .device-card-title {
+  color: #f3f4f6;
+}
+
+body.dark-theme .chart-container {
+  background: #4b5563;
+}

@@ -1,0 +1,49 @@
+{
+  "appId": "com.networkmonitor.app",
+  "productName": "Network Monitor",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron-prod.js",
+    "preload.js",
+    "assets/**/*",
+    "node_modules/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "assets",
+      "to": "assets",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      },
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "assets/icons/icon.ico",
+    "verifyUpdateCodeSignature": false,
+    "signAndEditExecutable": false
+  },
+  "portable": {
+    "artifactName": "NetworkMonitor-Portable-${version}.exe",
+    "requestExecutionLevel": "user"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "artifactName": "NetworkMonitor-Setup-${version}.exe",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Network Monitor"
+  },
+  "forceCodeSigning": false
+}

@@ -10,6 +10,7 @@ interface ElectronAPI {
     getDeviceHistory: (deviceId: number) => Promise<any>;
     getEvents: (limit?: number) => Promise<any>;
     getHistory: (limit?: number) => Promise<any>;
+    clearEvents: () => Promise<any>;
   };
   monitoring: {
     startMonitoring: () => Promise<any>;
@@ -230,6 +231,10 @@ const createLocalStorageAPI = (): ElectronAPI => {
       getHistory: async () => {
         const history = JSON.parse(localStorage.getItem('history') || '[]');
         return { success: true, data: history };
+      },
+      clearEvents: async () => {
+        localStorage.setItem('events', '[]');
+        return { success: true };
       },
     },
     monitoring: {

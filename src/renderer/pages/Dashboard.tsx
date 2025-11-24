@@ -63,16 +63,16 @@ export const Dashboard: React.FC = () => {
       // Загружаем устройства
       const devicesResponse = await api.database.getDevices();
       if (devicesResponse.success) {
-        const deviceList = devicesResponse.data;
+        const deviceList = devicesResponse.data || [];
         setDevices(deviceList);
 
-        // Вычисляем статистику
+        // Вычисляем статистику (используем deviceList, а не devices!)
         const statistics = {
-          total: devices.length,
-          online: devices.filter((d: Device) => d.current_status === 'online').length,
-          offline: devices.filter((d: Device) => d.current_status === 'offline').length,
-          warning: devices.filter((d: Device) => d.current_status === 'warning').length,
-          unknown: devices.filter((d: Device) => d.current_status === 'unknown').length,
+          total: deviceList.length,
+          online: deviceList.filter((d: Device) => d.current_status === 'online').length,
+          offline: deviceList.filter((d: Device) => d.current_status === 'offline').length,
+          warning: deviceList.filter((d: Device) => d.current_status === 'warning').length,
+          unknown: deviceList.filter((d: Device) => d.current_status === 'unknown' || !d.current_status).length,
           uptime: 0,
         };
 

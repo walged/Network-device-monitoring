@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDeviceHistory: (deviceId) => ipcRenderer.invoke('db:getDeviceHistory', deviceId),
     getEvents: (limit) => ipcRenderer.invoke('db:getEvents', limit),
     getHistory: (limit) => ipcRenderer.invoke('db:getHistory', limit),
+    clearEvents: () => ipcRenderer.invoke('db:clearEvents'),
   },
 
   // Мониторинг

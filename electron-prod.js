@@ -441,6 +441,15 @@ ipcMain.handle('db:getHistory', async (_, limit) => {
   }
 });
 
+ipcMain.handle('db:clearEvents', async () => {
+  try {
+    db.prepare('DELETE FROM event_logs').run();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('monitoring:start', async () => {
   try {
     startMonitoring();

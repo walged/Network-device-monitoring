@@ -186,6 +186,76 @@
   }
 }
 
+/* Адаптация под разные масштабы экрана */
+html {
+  font-size: 14px;
+}
+
+/* Масштабирование для высоких DPI */
+@media (-webkit-min-device-pixel-ratio: 1.25), (min-resolution: 120dpi) {
+  html {
+    font-size: 13px;
+  }
+}
+
+@media (-webkit-min-device-pixel-ratio: 1.5), (min-resolution: 144dpi) {
+  html {
+    font-size: 12px;
+  }
+}
+
+/* Минимальная ширина контента */
+.ant-layout-content {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/* Таблицы - предотвращаем переполнение */
+.ant-table-wrapper {
+  overflow-x: auto;
+}
+
+.ant-table {
+  min-width: 600px;
+}
+
+/* Карточки статистики */
+.ant-statistic-content {
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.ant-statistic-title {
+  font-size: clamp(12px, 1.2vw, 14px);
+}
+
+/* Графики - минимальная высота */
+.recharts-responsive-container {
+  min-height: 200px !important;
+}
+
+/* Кнопки в заголовках карточек */
+.ant-card-head-wrapper {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ant-card-extra {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Фильтры на маленьких экранах */
+@media (max-width: 576px) {
+  .ant-card-extra .ant-space {
+    flex-wrap: wrap;
+  }
+
+  .ant-card-extra .ant-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
+
 /* Loading states */
 .loading-container {
   display: flex;

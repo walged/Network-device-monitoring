@@ -21,7 +21,8 @@ import {
   ExclamationCircleOutlined,
   SearchOutlined,
   ClearOutlined,
-  ExportOutlined
+  ExportOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { EventLog as EventLogType } from '@shared/types';
@@ -63,48 +64,34 @@ export const EventLog: React.FC = () => {
 
     setLoading(true);
     try {
-      // Здесь будет реальный вызов API когда добавим метод
-      // const response = await api.database.getEventLogs();
-      // if (response.success) {
-      //   setEvents(response.data);
-      // }
-
-      // Пока используем моковые данные
-      const mockEvents: EventLogType[] = [
-        {
-          id: 1,
-          device_id: 1,
-          device_name: 'Switch-01',
-          device_ip: '192.168.1.1',
-          event_type: 'info',
-          message: 'Устройство снова в сети',
-          timestamp: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          device_id: 2,
-          device_name: 'Switch-02',
-          device_ip: '192.168.1.2',
-          event_type: 'error',
-          message: 'Устройство недоступно',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 3,
-          device_id: 3,
-          device_name: 'Camera-01',
-          device_ip: '192.168.1.10',
-          event_type: 'warning',
-          message: 'Высокое время отклика',
-          details: 'Время отклика превысило 100мс',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ];
-      setEvents(mockEvents);
+      const response = await api.database.getEvents(500);
+      if (response.success) {
+        setEvents(response.data || []);
+      } else {
+        message.error('Ошибка загрузки событий');
+      }
     } catch (error) {
+      console.error('Error loading events:', error);
       message.error('Ошибка загрузки событий');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const clearEvents = async () => {
+    if (!api) return;
+
+    try {
+      const response = await api.database.clearEvents();
+      if (response.success) {
+        setEvents([]);
+        message.success('Журнал событий очищен');
+      } else {
+        message.error('Ошибка очистки журнала');
+      }
+    } catch (error) {
+      console.error('Error clearing events:', error);
+      message.error('Ошибка очистки журнала');
     }
   };
 
@@ -273,6 +260,9 @@ export const EventLog: React.FC = () => {
           <Space>
             <Button icon={<ExportOutlined />} onClick={exportEvents}>
               Экспорт
+            </Button>
+            <Button icon={<DeleteOutlined />} onClick={clearEvents} danger>
+              Очистить
             </Button>
             <Button icon={<ReloadOutlined />} onClick={loadEvents}>
               Обновить

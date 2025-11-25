@@ -38,7 +38,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'device-updated',
       'device-deleted',
       'monitoring-status-changed',
-      'settings-changed'
+      'settings-changed',
+      'play-notification-sound'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));
@@ -62,6 +63,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     exportData: (format) => ipcRenderer.invoke('system:export', format),
     importData: (data) => ipcRenderer.invoke('system:import', data),
     openUrl: (url) => ipcRenderer.invoke('system:openUrl', url),
+    playSound: () => ipcRenderer.invoke('system:playSound'),
   },
 
   // Карты этажей
@@ -76,5 +78,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeDevice: (deviceId) => ipcRenderer.invoke('maps:removeDevice', deviceId),
     uploadImage: (mapId) => ipcRenderer.invoke('maps:uploadImage', mapId),
     getImage: (imagePath) => ipcRenderer.invoke('maps:getImage', imagePath),
+  },
+
+  // Шаблоны учетных данных
+  credentials: {
+    getAll: () => ipcRenderer.invoke('credentials:getAll'),
+    get: (id) => ipcRenderer.invoke('credentials:get', id),
+    add: (template) => ipcRenderer.invoke('credentials:add', template),
+    update: (id, template) => ipcRenderer.invoke('credentials:update', id, template),
+    delete: (id) => ipcRenderer.invoke('credentials:delete', id),
   }
 });

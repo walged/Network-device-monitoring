@@ -9,7 +9,9 @@
     "electron-prod.js",
     "preload.js",
     "assets/**/*",
-    "node_modules/**/*"
+    "node_modules/**/*",
+    "scc.ico",
+    "scc.png"
   ],
   "extraResources": [
     {

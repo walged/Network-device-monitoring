@@ -382,6 +382,11 @@ body.dark-theme .ant-collapse-content-box {
   color: #e5e7eb;
 }
 
+body.dark-theme .ant-collapse-content-box .ant-collapse-body {
+  background: #1f2937 !important;
+  color: #e5e7eb;
+}
+
 /* Dark theme - Form inputs */
 body.dark-theme .ant-input,
 body.dark-theme .ant-input-number,
@@ -408,6 +413,24 @@ body.dark-theme .ant-select-item {
 body.dark-theme .ant-select-item-option-active,
 body.dark-theme .ant-select-item-option-selected {
   background: #4b5563;
+}
+
+body.dark-theme .ant-select {
+  background: #374151 !important;
+}
+
+body.dark-theme .ant-select:not(.ant-select-disabled):not(.ant-select-customize-input):not(.ant-pagination-size-changer):hover .ant-select-selector {
+  background: #4b5563 !important;
+  border-color: #6b7280 !important;
+}
+
+body.dark-theme .ant-select-arrow {
+  color: #9ca3af;
+}
+
+body.dark-theme .ant-select-clear {
+  background: #374151;
+  color: #9ca3af;
 }
 
 /* Dark theme - Alerts */

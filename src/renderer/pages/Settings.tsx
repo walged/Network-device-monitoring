@@ -22,10 +22,13 @@ import {
   ThunderboltOutlined,
   DesktopOutlined,
   ImportOutlined,
-  ExportOutlined
+  ExportOutlined,
+  SoundOutlined,
+  KeyOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { useLanguage, Language } from '../i18n';
+import { CredentialTemplates } from './CredentialTemplates';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -353,6 +356,17 @@ export const Settings: React.FC = () => {
                       >
                         {t.settings.testNotification}
                       </Button>
+                      <Button
+                        block
+                        icon={<SoundOutlined />}
+                        onClick={() => {
+                          if (api) {
+                            api.system.playSound();
+                          }
+                        }}
+                      >
+                        {t.settings.testSound}
+                      </Button>
                     </Space>
                   </Card>
                 </Col>
@@ -407,6 +421,18 @@ export const Settings: React.FC = () => {
                 type="warning"
                 showIcon
               />
+            </TabPane>
+
+            <TabPane
+              tab={
+                <span>
+                  <KeyOutlined />
+                  {t.settings.credentials}
+                </span>
+              }
+              key="credentials"
+            >
+              <CredentialTemplates />
             </TabPane>
           </Tabs>
 

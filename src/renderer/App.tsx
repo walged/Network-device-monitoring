@@ -49,10 +49,12 @@ export const App: React.FC = () => {
     if (api) {
       api.on('alert', handleAlert);
       api.on('device-status-changed', handleStatusChange);
+      api.on('play-notification-sound', handlePlaySound);
 
       return () => {
         api.removeListener('alert', handleAlert);
         api.removeListener('device-status-changed', handleStatusChange);
+        api.removeListener('play-notification-sound', handlePlaySound);
       };
     }
   }, [api]);
@@ -83,16 +85,43 @@ export const App: React.FC = () => {
   const handleAlert = (data: any) => {
     setAlertCount(prev => prev + 1);
 
-    notification[data.new_status === 'online' ? 'success' : 'error']({
-      message: t.common.notification,
-      description: data.message,
-      placement: 'topRight',
-      duration: 5,
-    });
+    if (data.new_status === 'online') {
+      (notification.success as any)({
+        message: t.common.notification,
+        description: data.message,
+        placement: 'topRight',
+        duration: 5,
+      });
+    } else {
+      (notification.error as any)({
+        message: t.common.notification,
+        description: data.message,
+        placement: 'topRight',
+        duration: 5,
+      });
+    }
   };
 
   const handleStatusChange = (data: any) => {
     // Обновляем UI при изменении статуса устройства
+  };
+
+  const handlePlaySound = () => {
+    // Воспроизводим звук уведомления
+    try {
+      // В Electron файлы из dist доступны напрямую
+      const audio = new Audio('assets/notification.mp3');
+      audio.volume = 0.5; // Громкость 50%
+      audio.play().catch(err => {
+        console.log('Sound play error:', err);
+        // Пробуем альтернативный путь
+        const audioAlt = new Audio('../assets/notification.mp3');
+        audioAlt.volume = 0.5;
+        audioAlt.play().catch(e => console.log('Alternative sound path failed:', e));
+      });
+    } catch (error) {
+      console.log('Sound error:', error);
+    }
   };
 
   const toggleMonitoring = async () => {
@@ -101,20 +130,20 @@ export const App: React.FC = () => {
     try {
       if (isMonitoring) {
         await api.monitoring.stopMonitoring();
-        notification.info({
+        (notification.info as any)({
           message: t.monitoring.stoppedMsg,
           placement: 'topRight',
         });
       } else {
         await api.monitoring.startMonitoring();
-        notification.success({
+        (notification.success as any)({
           message: t.monitoring.started,
           placement: 'topRight',
         });
       }
       setIsMonitoring(!isMonitoring);
     } catch (error) {
-      notification.error({
+      (notification.error as any)({
         message: t.common.error,
         placement: 'topRight',
       });

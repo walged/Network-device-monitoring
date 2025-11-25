@@ -22,7 +22,7 @@ export interface Device {
   camera_login?: string;      // Логин для доступа к камере
   camera_password?: string;   // Пароль для доступа к камере
   stream_url?: string;        // URL потока (формируется автоматически или вручную)
-  stream_type?: 'http' | 'rtsp'; // Тип потока (http по умолчанию)
+  stream_type?: 'http' | 'rtsp' | 'onvif'; // Тип потока (http по умолчанию)
   // Координаты на визуальной карте
   map_x?: number;
   map_y?: number;
@@ -100,6 +100,14 @@ export interface NotificationSettings {
   critical_only: boolean;
   email_notifications?: boolean;
   email_address?: string;
+}
+
+export interface CredentialTemplate {
+  id?: number;
+  name: string;
+  login: string;
+  password: string;
+  created_at?: string;
 }
 
 export interface AppSettings {

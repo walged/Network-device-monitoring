@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, dialog, shell, Tray, Menu, nativeImage } = require('electron');
 
 // Автозапуск при старте Windows
 function setAutoLaunch(enable) {
@@ -22,6 +22,8 @@ let db = null;
 let monitoringInterval = null;
 let monitoringRunning = false;
 let isMonitoringCycleRunning = false; // Защита от наложения циклов
+let tray = null;
+let isQuitting = false;
 
 // Ping service - используем нативную команду вместо библиотеки для надежности
 const { exec } = require('child_process');
@@ -90,6 +92,14 @@ function initDatabase() {
       image_path TEXT,
       width INTEGER DEFAULT 800,
       height INTEGER DEFAULT 600,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS credential_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      login TEXT NOT NULL,
+      password TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -644,6 +654,16 @@ async function monitorDevice(device) {
         body: message
       }).show();
     }
+
+    // Sound notification
+    const soundEnabled = getSetting('sound_enabled');
+    if (soundEnabled === 'true' && mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.send('play-notification-sound');
+      } catch (err) {
+        console.error('Error sending play-sound to renderer:', err);
+      }
+    }
   }
 
   // Send status update to renderer (с проверкой isDestroyed)
@@ -668,6 +688,7 @@ function startMonitoring() {
 
   monitoringRunning = true;
   isMonitoringCycleRunning = false;
+  updateTrayMenu();
   const interval = parseInt(getSetting('monitoring_interval') || '60') * 1000;
 
   const runMonitoring = async () => {
@@ -713,7 +734,129 @@ function stopMonitoring() {
     monitoringInterval = null;
   }
   monitoringRunning = false;
+  updateTrayMenu();
   console.log('Monitoring stopped');
+}
+
+function createTray() {
+  // Создаем иконку для трея
+  let iconPath = path.join(__dirname, 'scc.ico');
+
+  // В продакшн-сборке ищем иконку в разных местах
+  if (!isDev) {
+    const possiblePaths = [
+      path.join(__dirname, 'scc.ico'),
+      path.join(__dirname, 'scc.png'),
+      path.join(process.resourcesPath, 'assets', 'icons', 'icon.ico'),
+      path.join(process.resourcesPath, 'assets', 'icons', 'icon.png'),
+    ];
+
+    for (const p of possiblePaths) {
+      try {
+        if (require('fs').existsSync(p)) {
+          iconPath = p;
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+
+  tray = new Tray(iconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Открыть SCC',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: 'Мониторинг',
+      submenu: [
+        {
+          label: 'Запустить',
+          click: () => {
+            startMonitoring();
+            updateTrayMenu();
+          }
+        },
+        {
+          label: 'Остановить',
+          click: () => {
+            stopMonitoring();
+            updateTrayMenu();
+          }
+        }
+      ]
+    },
+    { type: 'separator' },
+    {
+      label: 'Выход',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('Switch Camera Control');
+  tray.setContextMenu(contextMenu);
+
+  // Двойной клик на иконку в трее - показать окно
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+
+  const statusText = monitoringRunning ? '🟢 Мониторинг активен' : '🔴 Мониторинг остановлен';
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: statusText,
+      enabled: false
+    },
+    { type: 'separator' },
+    {
+      label: 'Открыть SCC',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: monitoringRunning ? 'Остановить мониторинг' : 'Запустить мониторинг',
+      click: () => {
+        if (monitoringRunning) {
+          stopMonitoring();
+        } else {
+          startMonitoring();
+        }
+        updateTrayMenu();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Выход',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip(`SCC - ${monitoringRunning ? 'Мониторинг активен' : 'Мониторинг остановлен'}`);
 }
 
 function createWindow() {
@@ -737,28 +880,65 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 
+  // Сворачивание в трей при закрытии окна (вместо выхода)
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+
+      // Показываем уведомление при первом сворачивании
+      const shownTrayNotification = getSetting('shown_tray_notification');
+      if (shownTrayNotification !== 'true' && Notification.isSupported()) {
+        new Notification({
+          title: 'SCC работает в фоне',
+          body: 'Программа свернута в системный трей. Двойной клик для открытия.'
+        }).show();
+        setSetting('shown_tray_notification', 'true');
+      }
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
 app.whenReady().then(() => {
+  // Устанавливаем имя приложения для Windows уведомлений
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('Switch Camera Control');
+  }
+
   initDatabase();
   createWindow();
+  createTray();
 
   // Auto-start monitoring
   const autoStart = getSetting('auto_start');
   if (autoStart === 'true') {
-    setTimeout(() => startMonitoring(), 2000);
+    setTimeout(() => {
+      startMonitoring();
+      updateTrayMenu();
+    }, 2000);
   }
 });
 
 app.on('window-all-closed', () => {
+  // На Windows не закрываем приложение при закрытии всех окон
+  // оно работает в трее
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+app.on('quit', () => {
   stopMonitoring();
-  if (db) db.close();
-  if (process.platform !== 'darwin') {
-    app.quit();
+  if (tray) {
+    tray.destroy();
+    tray = null;
   }
+  if (db) db.close();
 });
 
 app.on('activate', () => {
@@ -1038,6 +1218,55 @@ ipcMain.handle('maps:getImage', async (_, imagePath) => {
   }
 });
 
+// ============= Credential Templates Handlers =============
+
+ipcMain.handle('credentials:getAll', async () => {
+  try {
+    const templates = db.prepare('SELECT * FROM credential_templates ORDER BY name ASC').all();
+    return { success: true, data: templates };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('credentials:get', async (_, id) => {
+  try {
+    const template = db.prepare('SELECT * FROM credential_templates WHERE id = ?').get(id);
+    return { success: true, data: template };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('credentials:add', async (_, template) => {
+  try {
+    const { name, login, password } = template;
+    const result = db.prepare('INSERT INTO credential_templates (name, login, password) VALUES (?, ?, ?)').run(name, login, password);
+    return { success: true, data: { id: result.lastInsertRowid, ...template } };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('credentials:update', async (_, id, template) => {
+  try {
+    const { name, login, password } = template;
+    db.prepare('UPDATE credential_templates SET name = ?, login = ?, password = ? WHERE id = ?').run(name, login, password, id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('credentials:delete', async (_, id) => {
+  try {
+    db.prepare('DELETE FROM credential_templates WHERE id = ?').run(id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('monitoring:start', async () => {
   try {
     startMonitoring();
@@ -1180,6 +1409,17 @@ ipcMain.handle('system:import', async (_, data) => {
 ipcMain.handle('system:openUrl', async (_, url) => {
   try {
     await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('system:playSound', async () => {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('play-notification-sound');
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

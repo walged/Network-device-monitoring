@@ -161,6 +161,10 @@ export const NetworkMap: React.FC = () => {
       // RTSP формат: rtsp://login:password@ip:554/stream
       const auth = password ? `${login}:${password}@` : `${login}@`;
       return `rtsp://${auth}${ip}:554/stream`;
+    } else if (camera.stream_type === 'onvif') {
+      // ONVIF формат: http://login:password@ip/onvif/snapshot
+      const auth = password ? `${login}:${password}@` : '';
+      return `http://${auth}${ip}/onvif/snapshot`;
     } else {
       // HTTP формат: http://ip/cgi-bin/snapshot.cgi или /video.mjpg
       // Большинство камер используют snapshot
@@ -181,10 +185,11 @@ export const NetworkMap: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#f5f5f5',
+            backgroundColor: 'rgba(255,255,255,0.05)',
             borderRadius: 8,
-            color: '#bfbfbf',
-            flexDirection: 'column'
+            color: '#8c8c8c',
+            flexDirection: 'column',
+            border: '1px dashed rgba(255,255,255,0.1)'
           }}
         >
           <div style={{ fontSize: 48, marginBottom: 8 }}>—</div>
@@ -204,11 +209,11 @@ export const NetworkMap: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#fff2f0',
+            backgroundColor: 'rgba(255, 77, 79, 0.1)',
             borderRadius: 8,
             color: '#ff4d4f',
             flexDirection: 'column',
-            border: '1px solid #ffccc7'
+            border: '1px solid rgba(255, 77, 79, 0.3)'
           }}
         >
           <CloseCircleOutlined style={{ fontSize: 48, marginBottom: 8 }} />
@@ -257,7 +262,7 @@ export const NetworkMap: React.FC = () => {
             display: 'none',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#fff2f0',
+            backgroundColor: 'rgba(255, 77, 79, 0.1)',
             color: '#ff4d4f',
             flexDirection: 'column'
           }}
@@ -372,7 +377,7 @@ export const NetworkMap: React.FC = () => {
               alignItems: 'center',
               padding: '8px 12px',
               marginBottom: 8,
-              backgroundColor: 'rgba(0,0,0,0.02)',
+              backgroundColor: 'rgba(255,255,255,0.03)',
               borderRadius: 6,
               borderLeft: `3px solid ${camera.current_status === 'online' ? '#52c41a' : '#ff4d4f'}`
             }}

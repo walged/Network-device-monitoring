@@ -36,6 +36,7 @@ interface ElectronAPI {
     exportData: (format: string) => Promise<any>;
     importData: (data: any) => Promise<any>;
     openUrl: (url: string) => Promise<any>;
+    playSound: () => Promise<any>;
   };
   maps: {
     getAll: () => Promise<any>;
@@ -48,6 +49,13 @@ interface ElectronAPI {
     removeDevice: (deviceId: number) => Promise<any>;
     uploadImage: (mapId: number) => Promise<any>;
     getImage: (imagePath: string) => Promise<any>;
+  };
+  credentials: {
+    getAll: () => Promise<any>;
+    get: (id: number) => Promise<any>;
+    add: (template: any) => Promise<any>;
+    update: (id: number, template: any) => Promise<any>;
+    delete: (id: number) => Promise<any>;
   };
 }
 
@@ -639,6 +647,16 @@ const createLocalStorageAPI = (): ElectronAPI => {
         window.open(url, '_blank');
         return { success: true };
       },
+      playSound: async () => {
+        // In browser mode, play using Audio API
+        try {
+          const audio = new Audio('/assets/notification.mp3');
+          await audio.play();
+        } catch (error) {
+          console.log('Sound play error:', error);
+        }
+        return { success: true };
+      },
     },
     maps: {
       getAll: async () => {
@@ -747,6 +765,64 @@ const createLocalStorageAPI = (): ElectronAPI => {
       getImage: async () => {
         // В браузере нет доступа к локальным файлам
         return { success: false, error: 'Not supported in browser mode' };
+      },
+    },
+    credentials: {
+      getAll: async () => {
+        try {
+          const templates = JSON.parse(localStorage.getItem('credential_templates') || '[]');
+          return { success: true, data: templates };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      get: async (id: number) => {
+        try {
+          const templates = JSON.parse(localStorage.getItem('credential_templates') || '[]');
+          const template = templates.find((t: any) => t.id === id);
+          return { success: true, data: template };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      add: async (template: any) => {
+        try {
+          const templates = JSON.parse(localStorage.getItem('credential_templates') || '[]');
+          const newTemplate = {
+            ...template,
+            id: Date.now(),
+            created_at: new Date().toISOString(),
+          };
+          templates.push(newTemplate);
+          localStorage.setItem('credential_templates', JSON.stringify(templates));
+          return { success: true, data: newTemplate };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      update: async (id: number, template: any) => {
+        try {
+          const templates = JSON.parse(localStorage.getItem('credential_templates') || '[]');
+          const index = templates.findIndex((t: any) => t.id === id);
+          if (index !== -1) {
+            templates[index] = { ...templates[index], ...template };
+            localStorage.setItem('credential_templates', JSON.stringify(templates));
+            return { success: true };
+          }
+          return { success: false, error: 'Template not found' };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      delete: async (id: number) => {
+        try {
+          const templates = JSON.parse(localStorage.getItem('credential_templates') || '[]');
+          const filtered = templates.filter((t: any) => t.id !== id);
+          localStorage.setItem('credential_templates', JSON.stringify(filtered));
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
       },
     },
   };

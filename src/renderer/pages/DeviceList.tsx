@@ -31,6 +31,7 @@ import {
   GlobalOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
+import { useLanguage } from '../i18n';
 import { Device, VENDOR_CONFIGS } from '@shared/types';
 
 const { Option } = Select;
@@ -46,6 +47,7 @@ interface SwitchOption {
 
 export const DeviceList: React.FC = () => {
   const { api } = useElectronAPI();
+  const { t } = useLanguage();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -58,6 +60,9 @@ export const DeviceList: React.FC = () => {
   const [switches, setSwitches] = useState<SwitchOption[]>([]);
   const [availablePorts, setAvailablePorts] = useState<number[]>([]);
   const [selectedSwitch, setSelectedSwitch] = useState<number | null>(null);
+
+  // Шаблоны учетных данных
+  const [credentialTemplates, setCredentialTemplates] = useState<any[]>([]);
 
   // Динамические списки производителей в зависимости от типа
   const getVendorsByType = (type: string) => {
@@ -101,6 +106,7 @@ export const DeviceList: React.FC = () => {
 
   useEffect(() => {
     loadDevices();
+    loadCredentialTemplates();
 
     if (api) {
       // Подписываемся на изменения статуса устройств
@@ -166,6 +172,28 @@ export const DeviceList: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading switches:', error);
+    }
+  };
+
+  const loadCredentialTemplates = async () => {
+    if (!api) return;
+    try {
+      const response = await api.credentials.getAll();
+      if (response.success) {
+        setCredentialTemplates(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading credential templates:', error);
+    }
+  };
+
+  const handleTemplateSelect = (templateId: number) => {
+    const template = credentialTemplates.find(t => t.id === templateId);
+    if (template) {
+      form.setFieldsValue({
+        camera_login: template.login,
+        camera_password: template.password,
+      });
     }
   };
 
@@ -677,6 +705,22 @@ export const DeviceList: React.FC = () => {
                 </Col>
               </Row>
 
+              {credentialTemplates.length > 0 && (
+                <Form.Item label="Шаблон учетных данных">
+                  <Select
+                    placeholder={t.settings.selectCredential}
+                    onChange={handleTemplateSelect}
+                    allowClear
+                  >
+                    {credentialTemplates.map(template => (
+                      <Option key={template.id} value={template.id}>
+                        {template.name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              )}
+
               <Form.Item label="Доступ к камере">
                 <Row gutter={16}>
                   <Col span={8}>
@@ -694,6 +738,7 @@ export const DeviceList: React.FC = () => {
                       <Select placeholder="Тип потока">
                         <Option value="http">HTTP (MJPEG/JPEG)</Option>
                         <Option value="rtsp">RTSP</Option>
+                        <Option value="onvif">ONVIF</Option>
                       </Select>
                     </Form.Item>
                   </Col>

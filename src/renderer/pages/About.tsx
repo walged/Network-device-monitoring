@@ -142,7 +142,7 @@ export const About: React.FC = () => {
                   style={{ padding: 0, fontSize: 15, fontWeight: 600 }}
                   onClick={() => openLink('https://t.me/walged')}
                 >
-                  @walged
+                  WALGED
                 </Button>
               </div>
             </div>
@@ -167,7 +167,14 @@ export const About: React.FC = () => {
 
       {/* Футер */}
       <div style={{ textAlign: 'center', padding: '12px 0', opacity: 0.6 }}>
-        <Text style={{ fontSize: 12 }}>{t.about.copyright}</Text>
+        <Text style={{ fontSize: 12 }}>© 2025 </Text>
+        <Button
+          type="link"
+          style={{ padding: 0, fontSize: 12, opacity: 0.6 }}
+          onClick={() => openLink('https://revium.com')}
+        >
+          REVIUM
+        </Button>
       </div>
     </div>
   );

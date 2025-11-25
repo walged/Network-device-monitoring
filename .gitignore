@@ -2,4 +2,8 @@
 dist/
 node_modules/
 *.log
+null
 nul
+release/
+*.exe
+*.asar

@@ -109,8 +109,19 @@ export const DeviceList: React.FC = () => {
     loadCredentialTemplates();
 
     if (api) {
-      // Подписываемся на изменения статуса устройств
-      api.on('device-status-changed', handleStatusUpdate);
+      // Обработчик изменения статуса устройства
+      const handleStatusUpdate = (data: any) => {
+        setDevices(prev => prev.map(device => {
+          if (device.id === data.device_id) {
+            return {
+              ...device,
+              current_status: data.status,
+              last_response_time: data.response_time
+            };
+          }
+          return device;
+        }));
+      };
 
       // Подписываемся на добавление новых устройств
       const handleDeviceAdded = (device: any) => {
@@ -119,6 +130,8 @@ export const DeviceList: React.FC = () => {
         setDevices(prev => [...prev, device]);
       };
 
+      // Подписываемся на изменения статуса устройств
+      api.on('device-status-changed', handleStatusUpdate);
       api.on('device-added', handleDeviceAdded);
 
       return () => {
@@ -147,19 +160,6 @@ export const DeviceList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleStatusUpdate = (data: any) => {
-    setDevices(prev => prev.map(device => {
-      if (device.id === data.device_id) {
-        return {
-          ...device,
-          current_status: data.status,
-          last_response_time: data.response_time
-        };
-      }
-      return device;
-    }));
   };
 
   // Загрузка списка коммутаторов для привязки камер
@@ -230,22 +230,22 @@ export const DeviceList: React.FC = () => {
       if (editingDevice) {
         const response = await api.database.updateDevice(editingDevice.id!, values);
         if (response.success) {
-          message.success('Устройство обновлено');
+          message.success(t.devices.deviceUpdated);
           // При обновлении нужно перезагрузить список
           await loadDevices();
         } else {
-          message.error('Ошибка обновления устройства');
+          message.error(t.devices.updateError);
           console.error('Update error:', response.error);
           return;
         }
       } else {
         const response = await api.database.addDevice(values);
         if (response.success) {
-          message.success('Устройство добавлено');
+          message.success(t.devices.deviceAdded);
           console.log('Device added:', response.data);
           // Не вызываем loadDevices() - событие 'device-added' обновит список
         } else {
-          message.error('Ошибка добавления устройства');
+          message.error(t.devices.addError);
           console.error('Add error:', response.error);
           return;
         }
@@ -256,7 +256,7 @@ export const DeviceList: React.FC = () => {
       form.resetFields();
       setEditingDevice(null);
     } catch (error) {
-      message.error('Ошибка сохранения устройства');
+      message.error(t.devices.saveError);
       console.error('Save error:', error);
     }
   };
@@ -267,11 +267,11 @@ export const DeviceList: React.FC = () => {
     try {
       const response = await api.database.deleteDevice(id);
       if (response.success) {
-        message.success('Устройство удалено');
+        message.success(t.devices.deviceDeleted);
         loadDevices();
       }
     } catch (error) {
-      message.error('Ошибка удаления устройства');
+      message.error(t.devices.deleteError);
     }
   };
 
@@ -282,7 +282,7 @@ export const DeviceList: React.FC = () => {
     try {
       const response = await api.monitoring.pingDevice(device.ip);
       if (response.success && response.data.alive) {
-        message.success(`${device.name} доступно (${response.data.time}мс)`);
+        message.success(`${device.name} ${t.devices.testOnline} (${response.data.time}ms)`);
         // Обновляем статус устройства на "online"
         const updatedDevice = {
           ...device,
@@ -295,7 +295,7 @@ export const DeviceList: React.FC = () => {
         // Перезагружаем список устройств
         loadDevices();
       } else {
-        message.warning(`${device.name} недоступно`);
+        message.warning(`${device.name} ${t.devices.testOffline}`);
         // Обновляем статус устройства на "offline"
         const updatedDevice = {
           ...device,
@@ -309,7 +309,7 @@ export const DeviceList: React.FC = () => {
         loadDevices();
       }
     } catch (error) {
-      message.error('Ошибка тестирования');
+      message.error(t.devices.testError);
     } finally {
       setTestingDevice(null);
     }

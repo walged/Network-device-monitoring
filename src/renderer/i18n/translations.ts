@@ -46,6 +46,16 @@ export const translations = {
       cameraPassword: 'Пароль камеры',
       streamType: 'Тип потока',
       streamUrl: 'URL потока',
+      deviceAdded: 'Устройство добавлено',
+      deviceUpdated: 'Устройство обновлено',
+      deviceDeleted: 'Устройство удалено',
+      addError: 'Ошибка добавления устройства',
+      updateError: 'Ошибка обновления устройства',
+      deleteError: 'Ошибка удаления устройства',
+      saveError: 'Ошибка сохранения устройства',
+      testOnline: 'Устройство доступно',
+      testOffline: 'Устройство недоступно',
+      testError: 'Ошибка проверки устройства',
     },
     // Настройки
     settings: {
@@ -180,6 +190,16 @@ export const translations = {
       cameraPassword: 'Camera password',
       streamType: 'Stream type',
       streamUrl: 'Stream URL',
+      deviceAdded: 'Device added',
+      deviceUpdated: 'Device updated',
+      deviceDeleted: 'Device deleted',
+      addError: 'Error adding device',
+      updateError: 'Error updating device',
+      deleteError: 'Error deleting device',
+      saveError: 'Error saving device',
+      testOnline: 'Device is online',
+      testOffline: 'Device is offline',
+      testError: 'Error testing device',
     },
     // Settings
     settings: {

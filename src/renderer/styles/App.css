@@ -320,3 +320,210 @@ body.dark-theme .device-card-title {
 body.dark-theme .chart-container {
   background: #4b5563;
 }
+
+/* Dark theme - text visibility fixes */
+body.dark-theme,
+body.dark-theme .ant-typography,
+body.dark-theme .ant-card-head-title,
+body.dark-theme .ant-statistic-title,
+body.dark-theme .ant-statistic-content,
+body.dark-theme .ant-form-item-label > label,
+body.dark-theme .ant-select-selection-item,
+body.dark-theme .ant-input,
+body.dark-theme .ant-input-number-input,
+body.dark-theme .ant-radio-button-wrapper,
+body.dark-theme .ant-tabs-tab,
+body.dark-theme .ant-alert-message,
+body.dark-theme .ant-alert-description,
+body.dark-theme .ant-modal-title,
+body.dark-theme .ant-modal-body,
+body.dark-theme .ant-table-cell,
+body.dark-theme .ant-empty-description,
+body.dark-theme p,
+body.dark-theme span,
+body.dark-theme div {
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-card-head {
+  background: #374151;
+  border-bottom-color: #4b5563;
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-card-body {
+  background: #374151;
+  color: #e5e7eb;
+}
+
+/* Dark theme - Collapse component */
+body.dark-theme .ant-collapse {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark-theme .ant-collapse-item {
+  border-color: #4b5563;
+}
+
+body.dark-theme .ant-collapse-header {
+  background: #374151 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-theme .ant-collapse-content {
+  background: #1f2937;
+  border-top-color: #4b5563;
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-collapse-content-box {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+/* Dark theme - Form inputs */
+body.dark-theme .ant-input,
+body.dark-theme .ant-input-number,
+body.dark-theme .ant-select-selector,
+body.dark-theme .ant-picker {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-theme .ant-input::placeholder,
+body.dark-theme .ant-input-number-input::placeholder {
+  color: #9ca3af;
+}
+
+body.dark-theme .ant-select-dropdown {
+  background: #374151;
+}
+
+body.dark-theme .ant-select-item {
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-select-item-option-active,
+body.dark-theme .ant-select-item-option-selected {
+  background: #4b5563;
+}
+
+/* Dark theme - Alerts */
+body.dark-theme .ant-alert {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark-theme .ant-alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+body.dark-theme .ant-alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* Dark theme - Modal */
+body.dark-theme .ant-modal-content {
+  background: #1f2937;
+}
+
+body.dark-theme .ant-modal-header {
+  background: #374151;
+  border-bottom-color: #4b5563;
+}
+
+body.dark-theme .ant-modal-footer {
+  background: #374151;
+  border-top-color: #4b5563;
+}
+
+/* Dark theme - Table */
+body.dark-theme .ant-table {
+  background: #374151;
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-table-thead > tr > th {
+  background: #1f2937;
+  color: #e5e7eb;
+  border-color: #4b5563;
+}
+
+body.dark-theme .ant-table-tbody > tr > td {
+  border-color: #4b5563;
+}
+
+body.dark-theme .ant-table-tbody > tr:hover > td {
+  background: #4b5563;
+}
+
+/* Dark theme - Tabs */
+body.dark-theme .ant-tabs-tab {
+  color: #9ca3af;
+}
+
+body.dark-theme .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #60a5fa !important;
+}
+
+body.dark-theme .ant-tabs-ink-bar {
+  background: #60a5fa;
+}
+
+/* Dark theme - Buttons */
+body.dark-theme .ant-btn-default {
+  background: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-btn-default:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+  color: #f3f4f6;
+}
+
+/* Dark theme - Menu */
+body.dark-theme .ant-menu-light {
+  background: #1f2937;
+}
+
+body.dark-theme .ant-menu-light .ant-menu-item {
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-menu-light .ant-menu-item:hover {
+  background: #374151;
+}
+
+body.dark-theme .ant-menu-light .ant-menu-item-selected {
+  background: #374151;
+  color: #60a5fa;
+}
+
+/* Dark theme - Layout */
+body.dark-theme .ant-layout-sider {
+  background: #1f2937;
+}
+
+body.dark-theme .ant-layout-header {
+  background: #1f2937 !important;
+}
+
+body.dark-theme .ant-layout-content {
+  background: #111827 !important;
+}
+
+/* Dark theme - specific elements */
+body.dark-theme .port-slot.empty {
+  border-color: #4b5563 !important;
+  color: #6b7280 !important;
+}
+
+body.dark-theme [style*="color: #8c8c8c"] {
+  color: #9ca3af !important;
+}

@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Progress, Timeline, Tag, Empty, Spin } from 'antd';
+import { Row, Col, Card, Statistic, Empty, Spin } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
-  WarningOutlined,
-  QuestionCircleOutlined,
   WifiOutlined,
-  VideoCameraOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
-import { Device, EventLog as EventLogType } from '@shared/types';
+import { Device } from '@shared/types';
 import {
   LineChart,
   Line,
@@ -29,7 +26,6 @@ export const Dashboard: React.FC = () => {
   const { api } = useElectronAPI();
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [events, setEvents] = useState<EventLogType[]>([]);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -45,11 +41,9 @@ export const Dashboard: React.FC = () => {
 
     if (api) {
       api.on('device-status-changed', handleDeviceStatusChange);
-      api.on('event-added', handleEventAdded);
 
       return () => {
         api.removeListener('device-status-changed', handleDeviceStatusChange);
-        api.removeListener('event-added', handleEventAdded);
       };
     }
   }, [api]);
@@ -81,12 +75,6 @@ export const Dashboard: React.FC = () => {
         }
 
         setStats(statistics);
-      }
-
-      // Загружаем события
-      const eventsResponse = await api.database.getEvents();
-      if (eventsResponse.success) {
-        setEvents(eventsResponse.data.slice(0, 10));
       }
 
       // Загружаем историю и группируем по часам
@@ -135,12 +123,37 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleDeviceStatusChange = (data: any) => {
-    loadDashboardData(); // Перезагружаем данные при изменении статуса
-  };
+    // Оптимизация: обновляем только конкретное устройство вместо полной перезагрузки
+    setDevices(prevDevices => {
+      const updatedDevices = prevDevices.map(device => {
+        if (device.id === data.device_id) {
+          return {
+            ...device,
+            current_status: data.status,
+            last_response_time: data.response_time
+          };
+        }
+        return device;
+      });
 
-  const handleEventAdded = (event: any) => {
-    // Добавляем новое событие в начало списка
-    setEvents(prevEvents => [event, ...prevEvents].slice(0, 10));
+      // Пересчитываем статистику на основе обновленных устройств
+      const statistics = {
+        total: updatedDevices.length,
+        online: updatedDevices.filter(d => d.current_status === 'online').length,
+        offline: updatedDevices.filter(d => d.current_status === 'offline').length,
+        warning: updatedDevices.filter(d => d.current_status === 'warning').length,
+        unknown: updatedDevices.filter(d => d.current_status === 'unknown' || !d.current_status).length,
+        uptime: 0,
+      };
+
+      if (statistics.total > 0) {
+        statistics.uptime = Math.round((statistics.online / statistics.total) * 100);
+      }
+
+      setStats(statistics);
+
+      return updatedDevices;
+    });
   };
 
   const pieData = [
@@ -253,63 +266,6 @@ export const Dashboard: React.FC = () => {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
-        <Col xs={24} md={12}>
-          <Card title="Критические устройства">
-            {devices
-              .filter(d => d.current_status === 'offline')
-              .slice(0, 5)
-              .map(device => (
-                <Card.Grid key={device.id} style={{ width: '100%', padding: '12px' }}>
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <strong>{device.name}</strong>
-                      <br />
-                      <span style={{ color: '#8c8c8c' }}>{device.ip}</span>
-                    </Col>
-                    <Col>
-                      <Tag color="error">Недоступно</Tag>
-                    </Col>
-                  </Row>
-                </Card.Grid>
-              ))}
-            {devices.filter(d => d.current_status === 'offline').length === 0 && (
-              <Empty description="Все устройства в сети" />
-            )}
-          </Card>
-        </Col>
-
-        <Col xs={24} md={12}>
-          <Card title="Последние события">
-            {events.length > 0 ? (
-              <Timeline>
-                {events.map(event => (
-                  <Timeline.Item
-                    key={event.id}
-                    color={
-                      event.event_type === 'error' ? 'red' :
-                      event.event_type === 'warning' ? 'orange' :
-                      event.event_type === 'info' ? 'blue' : 'green'
-                    }
-                    dot={
-                      event.event_type === 'error' ? <CloseCircleOutlined style={{ color: '#ff4d4f' }} /> :
-                      event.event_type === 'warning' ? <WarningOutlined style={{ color: '#faad14' }} /> :
-                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    }
-                  >
-                    <p style={{ margin: 0, color: '#ffffff' }}>{event.message}</p>
-                    <small style={{ color: '#8c8c8c' }}>
-                      {event.device_name} • {new Date(event.timestamp || '').toLocaleString('ru-RU')}
-                    </small>
-                  </Timeline.Item>
-                ))}
-              </Timeline>
-            ) : (
-              <Empty description="Нет событий" />
-            )}
-          </Card>
-        </Col>
-      </Row>
     </div>
   );
 };

@@ -7,18 +7,25 @@ import {
   PlayCircleOutlined,
   PauseCircleOutlined,
   WifiOutlined,
-  AlertOutlined
+  AlertOutlined,
+  ApartmentOutlined,
+  PictureOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import { Dashboard } from './pages/Dashboard';
 import { DeviceList } from './pages/DeviceList';
 import { Settings } from './pages/Settings';
 import { EventLog } from './pages/EventLog';
+import { NetworkMap } from './pages/NetworkMap';
+import { VisualMap } from './pages/VisualMap';
+import { About } from './pages/About';
 import { useElectronAPI } from './hooks/useElectronAPI';
+import { useLanguage } from './i18n';
 import './styles/App.css';
 
 const { Header, Sider, Content } = Layout;
 
-type MenuKey = 'dashboard' | 'devices' | 'events' | 'settings';
+type MenuKey = 'dashboard' | 'devices' | 'network-map' | 'visual-map' | 'events' | 'settings' | 'about';
 
 export const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -26,6 +33,7 @@ export const App: React.FC = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
   const { api } = useElectronAPI();
+  const { t } = useLanguage();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
@@ -53,7 +61,7 @@ export const App: React.FC = () => {
     if (!api) return;
 
     const response = await api.settings.get('theme');
-    const themeValue = response.success && response.data ? response.data : 'light'; // По умолчанию светлая тема
+    const themeValue = response.success && response.data ? response.data : 'light';
 
     document.documentElement.setAttribute('data-theme', themeValue);
     if (themeValue === 'dark') {
@@ -76,7 +84,7 @@ export const App: React.FC = () => {
     setAlertCount(prev => prev + 1);
 
     notification[data.new_status === 'online' ? 'success' : 'error']({
-      title: "Уведомление", message: data.new_status === 'online' ? 'Устройство в сети' : 'Устройство недоступно',
+      message: t.common.notification,
       description: data.message,
       placement: 'topRight',
       duration: 5,
@@ -85,7 +93,6 @@ export const App: React.FC = () => {
 
   const handleStatusChange = (data: any) => {
     // Обновляем UI при изменении статуса устройства
-    // Это будет обработано в компонентах через их собственные подписки
   };
 
   const toggleMonitoring = async () => {
@@ -95,21 +102,20 @@ export const App: React.FC = () => {
       if (isMonitoring) {
         await api.monitoring.stopMonitoring();
         notification.info({
-          title: "Уведомление", message: 'Мониторинг остановлен',
+          message: t.monitoring.stoppedMsg,
           placement: 'topRight',
         });
       } else {
         await api.monitoring.startMonitoring();
         notification.success({
-          title: "Уведомление", message: 'Мониторинг запущен',
+          message: t.monitoring.started,
           placement: 'topRight',
         });
       }
       setIsMonitoring(!isMonitoring);
     } catch (error) {
       notification.error({
-        title: "Уведомление", message: 'Ошибка',
-        description: 'Не удалось изменить статус мониторинга',
+        message: t.common.error,
         placement: 'topRight',
       });
     }
@@ -121,10 +127,16 @@ export const App: React.FC = () => {
         return <Dashboard />;
       case 'devices':
         return <DeviceList />;
+      case 'network-map':
+        return <NetworkMap />;
+      case 'visual-map':
+        return <VisualMap />;
       case 'events':
         return <EventLog />;
       case 'settings':
         return <Settings />;
+      case 'about':
+        return <About />;
       default:
         return <Dashboard />;
     }
@@ -134,26 +146,41 @@ export const App: React.FC = () => {
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
-      label: 'Панель управления',
+      label: t.menu.dashboard,
     },
     {
       key: 'devices',
       icon: <DatabaseOutlined />,
-      label: 'Устройства',
+      label: t.menu.devices,
+    },
+    {
+      key: 'network-map',
+      icon: <ApartmentOutlined />,
+      label: t.menu.networkMap,
+    },
+    {
+      key: 'visual-map',
+      icon: <PictureOutlined />,
+      label: t.menu.visualMap,
     },
     {
       key: 'events',
       icon: <AlertOutlined />,
       label: (
         <Badge count={alertCount} offset={[10, 0]}>
-          <span>События</span>
+          <span>{t.menu.events}</span>
         </Badge>
       ),
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
-      label: 'Настройки',
+      label: t.menu.settings,
+    },
+    {
+      key: 'about',
+      icon: <InfoCircleOutlined />,
+      label: t.menu.about,
     },
   ];
 
@@ -169,7 +196,7 @@ export const App: React.FC = () => {
       >
         <div className="logo">
           <WifiOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
-          {!collapsed && <span>Network Monitor</span>}
+          {!collapsed && <span>SCC</span>}
         </div>
         <Menu
           theme="light"
@@ -187,17 +214,17 @@ export const App: React.FC = () => {
           <button
             className={`monitoring-btn ${isMonitoring ? 'active' : ''}`}
             onClick={toggleMonitoring}
-            title={isMonitoring ? 'Остановить мониторинг' : 'Запустить мониторинг'}
+            title={isMonitoring ? t.monitoring.stop : t.monitoring.start}
           >
             {isMonitoring ? (
               <>
                 <PauseCircleOutlined />
-                {!collapsed && <span>Остановить</span>}
+                {!collapsed && <span>{t.monitoring.stop}</span>}
               </>
             ) : (
               <>
                 <PlayCircleOutlined />
-                {!collapsed && <span>Запустить</span>}
+                {!collapsed && <span>{t.monitoring.start}</span>}
               </>
             )}
           </button>
@@ -222,7 +249,7 @@ export const App: React.FC = () => {
           <div className="header-status">
             <Badge
               status={isMonitoring ? 'processing' : 'default'}
-              text={isMonitoring ? 'Мониторинг активен' : 'Мониторинг остановлен'}
+              text={isMonitoring ? t.monitoring.active : t.monitoring.stopped}
             />
           </div>
         </Header>

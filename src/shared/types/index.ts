@@ -7,6 +7,8 @@ export interface Device {
   model?: string;
   location?: string;
   port_count?: number;
+  parent_device_id?: number;  // ID коммутатора, к которому подключена камера
+  port_number?: number;       // Номер порта на коммутаторе
   snmp_community?: string;
   snmp_version?: string;
   ssh_username?: string;
@@ -16,6 +18,18 @@ export interface Device {
   last_response_time?: number;
   created_at?: string;
   updated_at?: string;
+  // Поля для камер
+  camera_login?: string;      // Логин для доступа к камере
+  camera_password?: string;   // Пароль для доступа к камере
+  stream_url?: string;        // URL потока (формируется автоматически или вручную)
+  stream_type?: 'http' | 'rtsp'; // Тип потока (http по умолчанию)
+  // Координаты на визуальной карте
+  map_x?: number;
+  map_y?: number;
+  floor_map_id?: number;
+  // Вычисляемые поля для отображения
+  parent_device_name?: string; // Имя родительского коммутатора
+  connected_cameras_count?: number; // Количество подключенных камер (для коммутаторов)
 }
 
 export interface Camera {

@@ -1,4 +1,15 @@
-const { app, BrowserWindow, ipcMain, Notification, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, dialog, shell } = require('electron');
+
+// Автозапуск при старте Windows
+function setAutoLaunch(enable) {
+  if (process.platform !== 'win32') return;
+
+  app.setLoginItemSettings({
+    openAtLogin: enable,
+    path: app.getPath('exe'),
+    args: []
+  });
+}
 const path = require('path');
 const fs = require('fs/promises');
 const isDev = process.env.NODE_ENV === 'development';
@@ -10,9 +21,10 @@ let mainWindow = null;
 let db = null;
 let monitoringInterval = null;
 let monitoringRunning = false;
+let isMonitoringCycleRunning = false; // Защита от наложения циклов
 
-// Ping service
-const ping = require('ping');
+// Ping service - используем нативную команду вместо библиотеки для надежности
+const { exec } = require('child_process');
 
 // Initialize database
 function initDatabase() {
@@ -32,6 +44,8 @@ function initDatabase() {
       model TEXT,
       location TEXT,
       port_count INTEGER DEFAULT 0,
+      parent_device_id INTEGER,
+      port_number INTEGER,
       snmp_community TEXT,
       snmp_version TEXT DEFAULT '2c',
       ssh_username TEXT,
@@ -40,7 +54,8 @@ function initDatabase() {
       current_status TEXT DEFAULT 'unknown',
       last_response_time INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (parent_device_id) REFERENCES devices(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS device_status (
@@ -68,7 +83,63 @@ function initDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS floor_maps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      image_path TEXT,
+      width INTEGER DEFAULT 800,
+      height INTEGER DEFAULT 600,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+
+  // Миграция: добавляем новые поля если их нет (для существующих БД)
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(devices)").all();
+    const columns = tableInfo.map(col => col.name);
+
+    if (!columns.includes('parent_device_id')) {
+      db.exec('ALTER TABLE devices ADD COLUMN parent_device_id INTEGER');
+      console.log('Migration: added parent_device_id column');
+    }
+    if (!columns.includes('port_number')) {
+      db.exec('ALTER TABLE devices ADD COLUMN port_number INTEGER');
+      console.log('Migration: added port_number column');
+    }
+    // Координаты для визуальной карты
+    if (!columns.includes('map_x')) {
+      db.exec('ALTER TABLE devices ADD COLUMN map_x INTEGER');
+      console.log('Migration: added map_x column');
+    }
+    if (!columns.includes('map_y')) {
+      db.exec('ALTER TABLE devices ADD COLUMN map_y INTEGER');
+      console.log('Migration: added map_y column');
+    }
+    if (!columns.includes('floor_map_id')) {
+      db.exec('ALTER TABLE devices ADD COLUMN floor_map_id INTEGER');
+      console.log('Migration: added floor_map_id column');
+    }
+    // Поля для камер (логин, пароль, URL потока, тип потока)
+    if (!columns.includes('camera_login')) {
+      db.exec('ALTER TABLE devices ADD COLUMN camera_login TEXT');
+      console.log('Migration: added camera_login column');
+    }
+    if (!columns.includes('camera_password')) {
+      db.exec('ALTER TABLE devices ADD COLUMN camera_password TEXT');
+      console.log('Migration: added camera_password column');
+    }
+    if (!columns.includes('stream_url')) {
+      db.exec('ALTER TABLE devices ADD COLUMN stream_url TEXT');
+      console.log('Migration: added stream_url column');
+    }
+    if (!columns.includes('stream_type')) {
+      db.exec("ALTER TABLE devices ADD COLUMN stream_type TEXT DEFAULT 'http'");
+      console.log('Migration: added stream_type column');
+    }
+  } catch (e) {
+    console.log('Migration check completed');
+  }
 
   // Default settings
   const defaultSettings = {
@@ -91,7 +162,32 @@ function initDatabase() {
 
 // Database operations
 function getAllDevices() {
-  return db.prepare('SELECT * FROM devices ORDER BY name').all();
+  // Получаем все устройства с информацией о родительском коммутаторе
+  const devices = db.prepare(`
+    SELECT d.*,
+           p.name as parent_device_name
+    FROM devices d
+    LEFT JOIN devices p ON d.parent_device_id = p.id
+    ORDER BY d.name
+  `).all();
+
+  // Добавляем количество подключенных камер для коммутаторов
+  const cameraCounts = db.prepare(`
+    SELECT parent_device_id, COUNT(*) as count
+    FROM devices
+    WHERE parent_device_id IS NOT NULL
+    GROUP BY parent_device_id
+  `).all();
+
+  const countMap = {};
+  cameraCounts.forEach(row => {
+    countMap[row.parent_device_id] = row.count;
+  });
+
+  return devices.map(device => ({
+    ...device,
+    connected_cameras_count: countMap[device.id] || 0
+  }));
 }
 
 function getDevice(id) {
@@ -100,8 +196,8 @@ function getDevice(id) {
 
 function addDevice(device) {
   const stmt = db.prepare(`
-    INSERT INTO devices (name, ip, type, vendor, model, location, port_count, snmp_community, snmp_version, ssh_username, ssh_password, monitoring_interval)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO devices (name, ip, type, vendor, model, location, port_count, snmp_community, snmp_version, ssh_username, ssh_password, monitoring_interval, parent_device_id, port_number, camera_login, camera_password, stream_url, stream_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     device.name,
@@ -115,7 +211,13 @@ function addDevice(device) {
     device.snmp_version || '2c',
     device.ssh_username || null,
     device.ssh_password || null,
-    device.monitoring_interval || 60
+    device.monitoring_interval || 60,
+    device.parent_device_id || null,
+    device.port_number || null,
+    device.camera_login || null,
+    device.camera_password || null,
+    device.stream_url || null,
+    device.stream_type || 'http'
   );
   return result.lastInsertRowid;
 }
@@ -123,6 +225,44 @@ function addDevice(device) {
 function updateDevice(id, device) {
   const fields = [];
   const values = [];
+
+  // Проверяем, изменяется ли port_count у коммутатора
+  if (device.port_count !== undefined) {
+    const currentDevice = db.prepare('SELECT type, port_count FROM devices WHERE id = ?').get(id);
+
+    if (currentDevice && (currentDevice.type === 'switch' || currentDevice.type === 'router')) {
+      const newPortCount = device.port_count;
+      const oldPortCount = currentDevice.port_count || 0;
+
+      // Если количество портов уменьшилось - отвязываем камеры с "удалённых" портов
+      if (newPortCount < oldPortCount) {
+        const detachedCameras = db.prepare(`
+          SELECT id, name, port_number FROM devices
+          WHERE parent_device_id = ? AND port_number > ?
+        `).all(id, newPortCount);
+
+        if (detachedCameras.length > 0) {
+          db.prepare(`
+            UPDATE devices
+            SET parent_device_id = NULL, port_number = NULL
+            WHERE parent_device_id = ? AND port_number > ?
+          `).run(id, newPortCount);
+
+          // Логируем отвязку камер
+          detachedCameras.forEach(cam => {
+            console.log(`[UpdateDevice] Camera "${cam.name}" detached from port ${cam.port_number} (port removed)`);
+            addEventLog({
+              device_id: cam.id,
+              device_name: cam.name,
+              device_ip: '',
+              event_type: 'warning',
+              message: `Камера "${cam.name}" отвязана от порта ${cam.port_number} (порт удалён)`
+            });
+          });
+        }
+      }
+    }
+  }
 
   for (const [key, value] of Object.entries(device)) {
     if (key !== 'id' && value !== undefined) {
@@ -142,21 +282,154 @@ function updateDevice(id, device) {
 }
 
 function deleteDevice(id) {
+  // При удалении коммутатора - отвязываем камеры (parent_device_id = NULL)
+  db.prepare('UPDATE devices SET parent_device_id = NULL, port_number = NULL WHERE parent_device_id = ?').run(id);
+
   const stmt = db.prepare('DELETE FROM devices WHERE id = ?');
   const result = stmt.run(id);
   return result.changes > 0;
 }
 
-function addDeviceStatus(deviceId, status, responseTime, packetLoss) {
+// Получить список коммутаторов для выпадающего списка
+function getSwitches() {
+  return db.prepare(`
+    SELECT id, name, ip, port_count, location
+    FROM devices
+    WHERE type = 'switch' OR type = 'router'
+    ORDER BY name
+  `).all();
+}
+
+// Получить занятые порты коммутатора
+function getOccupiedPorts(switchId) {
+  return db.prepare(`
+    SELECT port_number, id as camera_id, name as camera_name
+    FROM devices
+    WHERE parent_device_id = ?
+    ORDER BY port_number
+  `).all(switchId);
+}
+
+// Получить свободные порты коммутатора
+function getAvailablePorts(switchId, currentCameraId = null) {
+  const switchDevice = db.prepare('SELECT port_count FROM devices WHERE id = ?').get(switchId);
+  if (!switchDevice || !switchDevice.port_count) return [];
+
+  const occupied = db.prepare(`
+    SELECT port_number FROM devices
+    WHERE parent_device_id = ? AND id != ?
+  `).all(switchId, currentCameraId || -1);
+
+  const occupiedSet = new Set(occupied.map(r => r.port_number));
+  const available = [];
+
+  for (let i = 1; i <= switchDevice.port_count; i++) {
+    if (!occupiedSet.has(i)) {
+      available.push(i);
+    }
+  }
+
+  return available;
+}
+
+// Получить камеры подключенные к коммутатору
+function getCamerasOnSwitch(switchId) {
+  return db.prepare(`
+    SELECT * FROM devices
+    WHERE parent_device_id = ?
+    ORDER BY port_number
+  `).all(switchId);
+}
+
+// ============ Floor Maps (Карты этажей) ============
+
+// Получить все карты
+function getAllFloorMaps() {
+  return db.prepare('SELECT * FROM floor_maps ORDER BY name').all();
+}
+
+// Получить карту по ID
+function getFloorMap(id) {
+  return db.prepare('SELECT * FROM floor_maps WHERE id = ?').get(id);
+}
+
+// Добавить карту
+function addFloorMap(map) {
   const stmt = db.prepare(`
-    INSERT INTO device_status (device_id, status, response_time, packet_loss)
+    INSERT INTO floor_maps (name, image_path, width, height)
     VALUES (?, ?, ?, ?)
   `);
-  stmt.run(deviceId, status, responseTime, packetLoss);
+  const result = stmt.run(map.name, map.image_path || null, map.width || 800, map.height || 600);
+  return result.lastInsertRowid;
+}
 
-  // Update device current status
-  db.prepare('UPDATE devices SET current_status = ?, last_response_time = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .run(status, responseTime, deviceId);
+// Обновить карту
+function updateFloorMap(id, map) {
+  const fields = [];
+  const values = [];
+
+  for (const [key, value] of Object.entries(map)) {
+    if (key !== 'id' && value !== undefined) {
+      fields.push(`${key} = ?`);
+      values.push(value);
+    }
+  }
+
+  if (fields.length === 0) return false;
+
+  values.push(id);
+  const stmt = db.prepare(`UPDATE floor_maps SET ${fields.join(', ')} WHERE id = ?`);
+  const result = stmt.run(...values);
+  return result.changes > 0;
+}
+
+// Удалить карту
+function deleteFloorMap(id) {
+  // Отвязываем устройства от этой карты
+  db.prepare('UPDATE devices SET floor_map_id = NULL, map_x = NULL, map_y = NULL WHERE floor_map_id = ?').run(id);
+
+  const stmt = db.prepare('DELETE FROM floor_maps WHERE id = ?');
+  const result = stmt.run(id);
+  return result.changes > 0;
+}
+
+// Получить устройства на карте
+function getDevicesOnMap(mapId) {
+  return db.prepare(`
+    SELECT d.*, p.name as parent_device_name
+    FROM devices d
+    LEFT JOIN devices p ON d.parent_device_id = p.id
+    WHERE d.floor_map_id = ?
+    ORDER BY d.name
+  `).all(mapId);
+}
+
+// Обновить позицию устройства на карте
+function updateDevicePosition(deviceId, mapId, x, y) {
+  const stmt = db.prepare('UPDATE devices SET floor_map_id = ?, map_x = ?, map_y = ? WHERE id = ?');
+  const result = stmt.run(mapId, x, y, deviceId);
+  return result.changes > 0;
+}
+
+// Убрать устройство с карты
+function removeDeviceFromMap(deviceId) {
+  const stmt = db.prepare('UPDATE devices SET floor_map_id = NULL, map_x = NULL, map_y = NULL WHERE id = ?');
+  const result = stmt.run(deviceId);
+  return result.changes > 0;
+}
+
+function addDeviceStatus(deviceId, status, responseTime, packetLoss) {
+  const localTimestamp = new Date().toISOString();
+
+  const stmt = db.prepare(`
+    INSERT INTO device_status (device_id, status, response_time, packet_loss, timestamp)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.run(deviceId, status, responseTime, packetLoss, localTimestamp);
+
+  // Update device current status with local timestamp
+  db.prepare('UPDATE devices SET current_status = ?, last_response_time = ?, updated_at = ? WHERE id = ?')
+    .run(status, responseTime, localTimestamp, deviceId);
 }
 
 function getDeviceHistory(deviceId, limit = 100) {
@@ -165,10 +438,12 @@ function getDeviceHistory(deviceId, limit = 100) {
 
 function addEventLog(event) {
   const stmt = db.prepare(`
-    INSERT INTO event_logs (device_id, device_name, device_ip, event_type, message, details)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO event_logs (device_id, device_name, device_ip, event_type, message, details, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(event.device_id, event.device_name, event.device_ip, event.event_type, event.message, event.details || null);
+  // Используем локальное время вместо CURRENT_TIMESTAMP (UTC)
+  const localTimestamp = new Date().toISOString();
+  stmt.run(event.device_id, event.device_name, event.device_ip, event.event_type, event.message, event.details || null, localTimestamp);
 }
 
 function getEventLogs(limit = 100) {
@@ -193,39 +468,146 @@ function getAllSettings() {
   return settings;
 }
 
-// Ping device
-async function pingDevice(ip) {
-  try {
-    const result = await ping.promise.probe(ip, {
-      timeout: 5,
-      extra: ['-n', '1']
+// Нативный ping через командную строку Windows
+// Это более надежно чем npm библиотека ping, которая неправильно парсит вывод
+function nativePing(ip, timeout = 5000) {
+  return new Promise((resolve) => {
+    // Windows ping: -n 1 = один пакет, -w timeout в миллисекундах
+    const command = `ping -n 1 -w ${timeout} ${ip}`;
+
+    console.log(`[NativePing] Executing: ${command}`);
+
+    exec(command, { timeout: timeout + 2000, encoding: 'utf8' }, (error, stdout, stderr) => {
+      const output = stdout || '';
+      console.log(`[NativePing] ${ip} - Raw output:\n${output}`);
+
+      if (error) {
+        console.log(`[NativePing] ${ip} - Command error: ${error.message}`);
+      }
+
+      // Парсим вывод ping - ищем признаки УСПЕШНОГО ответа
+      // Успешный ответ содержит "TTL=" (Time To Live) - это ключевой признак
+      // "Reply from" без TTL может быть "Destination host unreachable"
+
+      const hasReply = output.includes('TTL=') || output.includes('ttl=');
+      const hasTimeout = output.includes('Request timed out') ||
+                         output.includes('Превышен интервал') ||
+                         output.includes('timed out');
+      const hasUnreachable = output.includes('Destination host unreachable') ||
+                             output.includes('destination host unreachable') ||
+                             output.includes('Заданный узел недоступен') ||
+                             output.includes('недоступен') ||
+                             output.includes('unreachable');
+      const hasNoRoute = output.includes('Transmit failed') ||
+                         output.includes('General failure') ||
+                         output.includes('PING: transmit failed');
+
+      console.log(`[NativePing] ${ip} - Parse result: hasReply=${hasReply}, hasTimeout=${hasTimeout}, hasUnreachable=${hasUnreachable}, hasNoRoute=${hasNoRoute}`);
+
+      // Устройство онлайн ТОЛЬКО если есть TTL в ответе
+      if (hasReply && !hasTimeout && !hasUnreachable && !hasNoRoute) {
+        // Извлекаем время отклика
+        // Формат: "Reply from X.X.X.X: bytes=32 time=1ms TTL=64"
+        // Или на русском: "Ответ от X.X.X.X: число байт=32 время=1мс TTL=64"
+        let responseTime = 0;
+
+        // Английский формат: time=XXms или time<1ms
+        const timeMatchEn = output.match(/time[=<](\d+)/i);
+        if (timeMatchEn) {
+          responseTime = parseInt(timeMatchEn[1], 10);
+        }
+
+        // Русский формат: время=XXмс или время<1мс
+        const timeMatchRu = output.match(/время[=<](\d+)/i);
+        if (timeMatchRu) {
+          responseTime = parseInt(timeMatchRu[1], 10);
+        }
+
+        console.log(`[NativePing] ${ip} - SUCCESS: Device is ONLINE, responseTime=${responseTime}ms`);
+        resolve({
+          alive: true,
+          time: responseTime || 1,
+          host: ip
+        });
+      } else {
+        // Любой другой случай - устройство оффлайн
+        let reason = 'No valid reply';
+        if (hasTimeout) reason = 'Request timed out';
+        if (hasUnreachable) reason = 'Destination host unreachable';
+        if (hasNoRoute) reason = 'Network/transmit failure';
+
+        console.log(`[NativePing] ${ip} - OFFLINE: ${reason}`);
+        resolve({
+          alive: false,
+          time: undefined,
+          host: ip,
+          reason: reason
+        });
+      }
     });
-    return {
-      alive: result.alive,
-      time: result.alive ? Math.round(parseFloat(String(result.avg)) || 0) : undefined,
-      host: result.host
-    };
-  } catch (error) {
-    return {
-      alive: false,
-      time: undefined,
-      host: ip,
-      error: error.message
-    };
+  });
+}
+
+// Ping device with retry mechanism
+async function pingDevice(ip, retries = 3, retryDelay = 2000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    console.log(`[Ping] ${ip} - attempt ${attempt}/${retries}`);
+
+    const result = await nativePing(ip, 5000);
+
+    if (result.alive) {
+      console.log(`[Ping] ${ip} - SUCCESS on attempt ${attempt}`);
+      return {
+        alive: true,
+        time: result.time,
+        host: result.host,
+        attempts: attempt
+      };
+    }
+
+    // Если не ответило и есть еще попытки - ждем перед следующей
+    if (attempt < retries) {
+      console.log(`[Ping] ${ip} - no response (${result.reason}), waiting ${retryDelay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
   }
+
+  // Все попытки исчерпаны - устройство недоступно
+  console.log(`[Ping] ${ip} - all ${retries} attempts failed, marking as OFFLINE`);
+  return {
+    alive: false,
+    time: undefined,
+    host: ip,
+    attempts: retries
+  };
 }
 
 // Monitoring
 async function monitorDevice(device) {
-  const pingResult = await pingDevice(device.ip);
-  const newStatus = pingResult.alive ? 'online' : 'offline';
-  const oldStatus = device.current_status;
+  try {
+    console.log(`[Monitor] Checking device: ${device.name} (${device.ip})`);
 
-  // Save status
-  addDeviceStatus(device.id, newStatus, pingResult.time || 0, pingResult.alive ? 0 : 100);
+    // КРИТИЧЕСКИ ВАЖНО: Загружаем актуальный статус из БД перед проверкой
+    const currentDevice = getDevice(device.id);
+    if (!currentDevice) {
+      console.warn(`[Monitor] Device ${device.id} not found in DB, skipping`);
+      return;
+    }
 
-  // Check status change
-  if (oldStatus !== newStatus && oldStatus !== 'unknown') {
+    console.log(`[Monitor] ${device.name} - current status in DB: ${currentDevice.current_status}`);
+
+    const pingResult = await pingDevice(device.ip);
+    const newStatus = pingResult.alive ? 'online' : 'offline';
+    const oldStatus = currentDevice.current_status; // Используем актуальный статус из БД!
+
+    console.log(`[Monitor] ${device.name} - ping result: alive=${pingResult.alive}, oldStatus=${oldStatus}, newStatus=${newStatus}`);
+
+    // Save status
+    addDeviceStatus(device.id, newStatus, pingResult.time || 0, pingResult.alive ? 0 : 100);
+    console.log(`[Monitor] ${device.name} - status saved to DB: ${newStatus}`);
+
+    // Check status change
+    if (oldStatus !== newStatus && oldStatus !== 'unknown') {
     const message = newStatus === 'online'
       ? `Устройство "${device.name}" (${device.ip}) снова в сети`
       : `Устройство "${device.name}" (${device.ip}) недоступно`;
@@ -238,16 +620,20 @@ async function monitorDevice(device) {
       message: message
     });
 
-    // Send alert to renderer
-    if (mainWindow) {
-      mainWindow.webContents.send('alert', {
-        device_id: device.id,
-        device_name: device.name,
-        device_ip: device.ip,
-        old_status: oldStatus,
-        new_status: newStatus,
-        message: message
-      });
+    // Send alert to renderer (с проверкой isDestroyed)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.send('alert', {
+          device_id: device.id,
+          device_name: device.name,
+          device_ip: device.ip,
+          old_status: oldStatus,
+          new_status: newStatus,
+          message: message
+        });
+      } catch (err) {
+        console.error('Error sending alert to renderer:', err);
+      }
     }
 
     // System notification
@@ -260,13 +646,20 @@ async function monitorDevice(device) {
     }
   }
 
-  // Send status update to renderer
-  if (mainWindow) {
-    mainWindow.webContents.send('device-status-changed', {
-      device_id: device.id,
-      status: newStatus,
-      response_time: pingResult.time || 0
-    });
+  // Send status update to renderer (с проверкой isDestroyed)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('device-status-changed', {
+        device_id: device.id,
+        status: newStatus,
+        response_time: pingResult.time || 0
+      });
+    } catch (err) {
+      console.error('Error sending status update to renderer:', err);
+    }
+  }
+  } catch (error) {
+    console.error(`Error monitoring device ${device.name} (${device.ip}):`, error);
   }
 }
 
@@ -274,12 +667,37 @@ function startMonitoring() {
   if (monitoringRunning) return;
 
   monitoringRunning = true;
+  isMonitoringCycleRunning = false;
   const interval = parseInt(getSetting('monitoring_interval') || '60') * 1000;
 
   const runMonitoring = async () => {
-    const devices = getAllDevices();
-    for (const device of devices) {
-      await monitorDevice(device);
+    // Защита от наложения циклов
+    if (isMonitoringCycleRunning) {
+      console.warn('Previous monitoring cycle is still running, skipping this cycle');
+      return;
+    }
+
+    isMonitoringCycleRunning = true;
+    try {
+      const devices = getAllDevices();
+
+      if (devices.length === 0) {
+        console.log('No devices to monitor');
+        return;
+      }
+
+      console.log(`Starting monitoring cycle for ${devices.length} devices`);
+
+      // ПАРАЛЛЕЛЬНАЯ проверка устройств (вместо последовательной)
+      await Promise.all(
+        devices.map(device => monitorDevice(device))
+      );
+
+      console.log('Monitoring cycle completed');
+    } catch (error) {
+      console.error('Error in monitoring cycle:', error);
+    } finally {
+      isMonitoringCycleRunning = false;
     }
   };
 
@@ -308,8 +726,8 @@ function createWindow() {
       webSecurity: false,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, 'assets/icons/app-icon.png'),
-    title: 'Network Monitor'
+    icon: path.join(__dirname, 'scc.ico'),
+    title: 'Switch Camera Control (SCC)'
   });
 
   if (isDev) {
@@ -450,6 +868,176 @@ ipcMain.handle('db:clearEvents', async () => {
   }
 });
 
+// Получить список коммутаторов для привязки камер
+ipcMain.handle('db:getSwitches', async () => {
+  try {
+    const switches = getSwitches();
+    return { success: true, data: switches };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Получить свободные порты коммутатора
+ipcMain.handle('db:getAvailablePorts', async (_, switchId, currentCameraId) => {
+  try {
+    const ports = getAvailablePorts(switchId, currentCameraId);
+    return { success: true, data: ports };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Получить занятые порты коммутатора
+ipcMain.handle('db:getOccupiedPorts', async (_, switchId) => {
+  try {
+    const ports = getOccupiedPorts(switchId);
+    return { success: true, data: ports };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Получить камеры на коммутаторе (для карты сети)
+ipcMain.handle('db:getCamerasOnSwitch', async (_, switchId) => {
+  try {
+    const cameras = getCamerasOnSwitch(switchId);
+    return { success: true, data: cameras };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ Floor Maps IPC Handlers ============
+
+ipcMain.handle('maps:getAll', async () => {
+  try {
+    const maps = getAllFloorMaps();
+    return { success: true, data: maps };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:get', async (_, id) => {
+  try {
+    const map = getFloorMap(id);
+    return { success: true, data: map };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:add', async (_, map) => {
+  try {
+    const id = addFloorMap(map);
+    const newMap = getFloorMap(id);
+    return { success: true, data: newMap };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:update', async (_, id, map) => {
+  try {
+    const success = updateFloorMap(id, map);
+    return { success, data: success };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:delete', async (_, id) => {
+  try {
+    const success = deleteFloorMap(id);
+    return { success, data: success };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:getDevices', async (_, mapId) => {
+  try {
+    const devices = getDevicesOnMap(mapId);
+    return { success: true, data: devices };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:updateDevicePosition', async (_, deviceId, mapId, x, y) => {
+  try {
+    const success = updateDevicePosition(deviceId, mapId, x, y);
+    return { success, data: success };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('maps:removeDevice', async (_, deviceId) => {
+  try {
+    const success = removeDeviceFromMap(deviceId);
+    return { success, data: success };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Загрузка изображения карты
+ipcMain.handle('maps:uploadImage', async (_, mapId) => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
+      ]
+    });
+
+    if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+      const selectedFile = result.filePaths[0];
+      const userDataPath = app.getPath('userData');
+      const mapsDir = path.join(userDataPath, 'maps');
+
+      // Создаем директорию если не существует
+      await fs.mkdir(mapsDir, { recursive: true });
+
+      // Копируем файл
+      const ext = path.extname(selectedFile);
+      const newFileName = `map_${mapId}_${Date.now()}${ext}`;
+      const destPath = path.join(mapsDir, newFileName);
+
+      await fs.copyFile(selectedFile, destPath);
+
+      // Обновляем путь в БД
+      updateFloorMap(mapId, { image_path: destPath });
+
+      return { success: true, data: destPath };
+    }
+
+    return { success: false, error: 'Cancelled' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Читаем изображение карты как base64
+ipcMain.handle('maps:getImage', async (_, imagePath) => {
+  try {
+    if (!imagePath) {
+      return { success: false, error: 'No image path' };
+    }
+
+    const imageBuffer = await fs.readFile(imagePath);
+    const ext = path.extname(imagePath).toLowerCase().slice(1);
+    const mimeType = ext === 'jpg' ? 'jpeg' : ext;
+    const base64 = `data:image/${mimeType};base64,${imageBuffer.toString('base64')}`;
+
+    return { success: true, data: base64 };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('monitoring:start', async () => {
   try {
     startMonitoring();
@@ -513,6 +1101,12 @@ ipcMain.handle('settings:get', async (_, key) => {
 ipcMain.handle('settings:set', async (_, key, value) => {
   try {
     setSetting(key, value);
+
+    // Если меняется настройка автозапуска - применяем её
+    if (key === 'auto_start') {
+      setAutoLaunch(value === 'true');
+    }
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -577,6 +1171,15 @@ ipcMain.handle('system:import', async (_, data) => {
         addDevice(deviceData);
       }
     }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('system:openUrl', async (_, url) => {
+  try {
+    await shell.openExternal(url);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

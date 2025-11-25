@@ -27,12 +27,22 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   QuestionCircleOutlined,
-  WarningOutlined
+  WarningOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { Device, VENDOR_CONFIGS } from '@shared/types';
 
 const { Option } = Select;
+
+// Интерфейс для коммутатора в списке
+interface SwitchOption {
+  id: number;
+  name: string;
+  ip: string;
+  port_count: number;
+  location?: string;
+}
 
 export const DeviceList: React.FC = () => {
   const { api } = useElectronAPI();
@@ -41,7 +51,53 @@ export const DeviceList: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [testingDevice, setTestingDevice] = useState<number | null>(null);
+  const [selectedDeviceType, setSelectedDeviceType] = useState<string>('switch');
   const [form] = Form.useForm();
+
+  // Для привязки камер к коммутаторам
+  const [switches, setSwitches] = useState<SwitchOption[]>([]);
+  const [availablePorts, setAvailablePorts] = useState<number[]>([]);
+  const [selectedSwitch, setSelectedSwitch] = useState<number | null>(null);
+
+  // Динамические списки производителей в зависимости от типа
+  const getVendorsByType = (type: string) => {
+    switch (type) {
+      case 'switch':
+      case 'router':
+        return [
+          { value: 'tfortis', label: 'TFortis' },
+          { value: 'tplink', label: 'TP-Link' },
+          { value: 'netgear', label: 'Netgear' },
+          { value: 'cisco', label: 'Cisco' },
+          { value: 'mikrotik', label: 'MikroTik' },
+          { value: 'juniper', label: 'Juniper' },
+          { value: 'generic', label: 'Другой' },
+        ];
+      case 'camera':
+        return [
+          { value: 'ltv', label: 'LTV' },
+          { value: 'hikvision', label: 'Hikvision' },
+          { value: 'dahua', label: 'Dahua' },
+          { value: 'mobotix', label: 'Mobotix' },
+          { value: 'axis', label: 'Axis' },
+          { value: 'hanwha', label: 'Hanwha' },
+          { value: 'generic', label: 'Другой' },
+        ];
+      case 'server':
+        return [
+          { value: 'hp', label: 'HP' },
+          { value: 'dell', label: 'Dell' },
+          { value: 'lenovo', label: 'Lenovo' },
+          { value: 'supermicro', label: 'Supermicro' },
+          { value: 'ibm', label: 'IBM' },
+          { value: 'generic', label: 'Другой' },
+        ];
+      default:
+        return [
+          { value: 'generic', label: 'Другой' },
+        ];
+    }
+  };
 
   useEffect(() => {
     loadDevices();
@@ -98,6 +154,45 @@ export const DeviceList: React.FC = () => {
       }
       return device;
     }));
+  };
+
+  // Загрузка списка коммутаторов для привязки камер
+  const loadSwitches = async () => {
+    if (!api) return;
+    try {
+      const response = await api.database.getSwitches();
+      if (response.success) {
+        setSwitches(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading switches:', error);
+    }
+  };
+
+  // Загрузка доступных портов при выборе коммутатора
+  const loadAvailablePorts = async (switchId: number) => {
+    if (!api) return;
+    try {
+      const currentCameraId = editingDevice?.id || undefined;
+      const response = await api.database.getAvailablePorts(switchId, currentCameraId);
+      if (response.success) {
+        setAvailablePorts(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading available ports:', error);
+      setAvailablePorts([]);
+    }
+  };
+
+  // Обработчик выбора коммутатора
+  const handleSwitchChange = (switchId: number | null) => {
+    setSelectedSwitch(switchId);
+    if (switchId) {
+      loadAvailablePorts(switchId);
+    } else {
+      setAvailablePorts([]);
+      form.setFieldsValue({ port_number: undefined });
+    }
   };
 
   const handleAddEdit = async (values: any) => {
@@ -192,15 +287,61 @@ export const DeviceList: React.FC = () => {
     }
   };
 
-  const showModal = (device?: Device) => {
+  const handleOpenInBrowser = async (device: Device) => {
+    if (!api) return;
+
+    try {
+      const url = `http://${device.ip}`;
+      const response = await api.system.openUrl(url);
+      if (response.success) {
+        message.success(`Открытие ${url} в браузере`);
+      } else {
+        message.error('Ошибка открытия URL');
+      }
+    } catch (error) {
+      message.error('Ошибка открытия URL');
+    }
+  };
+
+  const showModal = async (device?: Device) => {
+    // Загружаем список коммутаторов для привязки камер
+    await loadSwitches();
+
     if (device) {
       setEditingDevice(device);
+      setSelectedDeviceType(device.type || 'switch');
       form.setFieldsValue(device);
+
+      // Если редактируем камеру с привязкой - загружаем доступные порты
+      if (device.type === 'camera' && device.parent_device_id) {
+        setSelectedSwitch(device.parent_device_id);
+        await loadAvailablePorts(device.parent_device_id);
+      } else {
+        setSelectedSwitch(null);
+        setAvailablePorts([]);
+      }
     } else {
       setEditingDevice(null);
+      setSelectedDeviceType('switch');
+      setSelectedSwitch(null);
+      setAvailablePorts([]);
       form.resetFields();
     }
     setModalVisible(true);
+  };
+
+  // Обработчик изменения типа устройства
+  const handleDeviceTypeChange = (value: string) => {
+    setSelectedDeviceType(value);
+    // Сбрасываем производителя при смене типа
+    form.setFieldsValue({ vendor: 'generic' });
+
+    // Если не камера - сбрасываем привязку к коммутатору
+    if (value !== 'camera') {
+      setSelectedSwitch(null);
+      setAvailablePorts([]);
+      form.setFieldsValue({ parent_device_id: undefined, port_number: undefined });
+    }
   };
 
   const getStatusIcon = (status?: string) => {
@@ -287,7 +428,45 @@ export const DeviceList: React.FC = () => {
       title: 'Порты',
       dataIndex: 'port_count',
       key: 'port_count',
-      render: (count: number) => count || '-',
+      render: (count: number, record: Device) => {
+        // Для коммутаторов показываем занятость портов
+        if ((record.type === 'switch' || record.type === 'router') && count) {
+          const occupied = record.connected_cameras_count || 0;
+          return (
+            <Tooltip title={`${occupied} из ${count} портов занято`}>
+              <span>{occupied}/{count}</span>
+            </Tooltip>
+          );
+        }
+        return count || '-';
+      },
+    },
+    {
+      title: 'Подключение',
+      key: 'connection',
+      render: (_: any, record: Device) => {
+        // Для камер показываем к какому коммутатору подключена
+        if (record.type === 'camera' && record.parent_device_name) {
+          return (
+            <Tooltip title={`Подключена к ${record.parent_device_name}, порт ${record.port_number}`}>
+              <Tag color="blue">
+                {record.parent_device_name}, порт {record.port_number}
+              </Tag>
+            </Tooltip>
+          );
+        }
+        // Для коммутаторов показываем количество подключенных камер
+        if ((record.type === 'switch' || record.type === 'router') && record.connected_cameras_count) {
+          return (
+            <Tooltip title={`${record.connected_cameras_count} камер подключено`}>
+              <Tag color="green">
+                {record.connected_cameras_count} камер
+              </Tag>
+            </Tooltip>
+          );
+        }
+        return '-';
+      },
     },
     {
       title: 'Статус',
@@ -304,9 +483,16 @@ export const DeviceList: React.FC = () => {
     {
       title: 'Действия',
       key: 'actions',
-      width: 150,
+      width: 180,
       render: (_: any, record: Device) => (
         <Space size="small">
+          <Tooltip title="Открыть в браузере">
+            <Button
+              type="text"
+              icon={<GlobalOutlined />}
+              onClick={() => handleOpenInBrowser(record)}
+            />
+          </Tooltip>
           <Tooltip title="Тестировать">
             <Button
               type="text"
@@ -387,6 +573,7 @@ export const DeviceList: React.FC = () => {
             snmp_community: 'public',
             snmp_version: '2c',
             monitoring_interval: 60,
+            stream_type: 'http',
           }}
         >
           <Row gutter={16}>
@@ -419,7 +606,7 @@ export const DeviceList: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Тип устройства" rules={[{ required: true }]}>
-                <Select>
+                <Select onChange={handleDeviceTypeChange}>
                   <Option value="switch">Коммутатор</Option>
                   <Option value="router">Маршрутизатор</Option>
                   <Option value="camera">Камера</Option>
@@ -431,12 +618,11 @@ export const DeviceList: React.FC = () => {
             <Col span={12}>
               <Form.Item name="vendor" label="Производитель">
                 <Select>
-                  <Option value="tfortis">TFortis</Option>
-                  <Option value="tplink">TP-Link</Option>
-                  <Option value="ltv">LTV</Option>
-                  <Option value="netgear">Netgear</Option>
-                  <Option value="cisco">Cisco</Option>
-                  <Option value="generic">Другой</Option>
+                  {getVendorsByType(selectedDeviceType).map(vendor => (
+                    <Option key={vendor.value} value={vendor.value}>
+                      {vendor.label}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -455,11 +641,89 @@ export const DeviceList: React.FC = () => {
             </Col>
           </Row>
 
+          {/* Привязка камеры к коммутатору - только для типа "camera" */}
+          {selectedDeviceType === 'camera' && (
+            <>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="parent_device_id" label="Подключена к коммутатору">
+                    <Select
+                      allowClear
+                      placeholder="Выберите коммутатор"
+                      onChange={(value) => handleSwitchChange(value)}
+                    >
+                      {switches.map(sw => (
+                        <Option key={sw.id} value={sw.id}>
+                          {sw.name} ({sw.ip}) - {sw.port_count} портов
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="port_number" label="Порт">
+                    <Select
+                      allowClear
+                      placeholder="Выберите порт"
+                      disabled={!selectedSwitch || availablePorts.length === 0}
+                    >
+                      {availablePorts.map(port => (
+                        <Option key={port} value={port}>
+                          Порт {port}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item label="Доступ к камере">
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <Form.Item name="camera_login" noStyle>
+                      <Input placeholder="Логин камеры" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={8}>
+                    <Form.Item name="camera_password" noStyle>
+                      <Input.Password placeholder="Пароль камеры" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={8}>
+                    <Form.Item name="stream_type" noStyle initialValue="http">
+                      <Select placeholder="Тип потока">
+                        <Option value="http">HTTP (MJPEG/JPEG)</Option>
+                        <Option value="rtsp">RTSP</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Form.Item>
+
+              <Form.Item
+                name="stream_url"
+                label="URL потока (опционально)"
+                tooltip="Оставьте пустым для автоматического формирования URL"
+              >
+                <Input placeholder="http://IP/video или rtsp://IP:554/stream" />
+              </Form.Item>
+            </>
+          )}
+
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="port_count" label="Количество портов">
+              <Form.Item
+                name="port_count"
+                label="Количество портов"
+                style={{ display: selectedDeviceType === 'switch' || selectedDeviceType === 'router' ? 'block' : 'none' }}
+              >
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
+              {selectedDeviceType !== 'switch' && selectedDeviceType !== 'router' && (
+                <Form.Item label=" " colon={false}>
+                  {/* Пустое место для выравнивания */}
+                </Form.Item>
+              )}
             </Col>
             <Col span={12}>
               <Form.Item name="monitoring_interval" label="Интервал мониторинга (сек)">

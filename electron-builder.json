@@ -1,6 +1,6 @@
 {
-  "appId": "com.networkmonitor.app",
-  "productName": "Network Monitor",
+  "appId": "com.scc.app",
+  "productName": "Switch Camera Control",
   "directories": {
     "output": "release"
   },
@@ -29,21 +29,21 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "assets/icons/icon.ico",
+    "icon": "scc.png",
     "verifyUpdateCodeSignature": false,
     "signAndEditExecutable": false
   },
   "portable": {
-    "artifactName": "NetworkMonitor-Portable-${version}.exe",
+    "artifactName": "SCC-Portable-${version}.exe",
     "requestExecutionLevel": "user"
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
-    "artifactName": "NetworkMonitor-Setup-${version}.exe",
+    "artifactName": "SCC-Setup-${version}.exe",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Network Monitor"
+    "shortcutName": "Switch Camera Control"
   },
   "forceCodeSigning": false
 }

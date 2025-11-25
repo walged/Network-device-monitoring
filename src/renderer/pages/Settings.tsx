@@ -17,7 +17,6 @@ import {
 } from 'antd';
 import {
   SaveOutlined,
-  ReloadOutlined,
   BellOutlined,
   GlobalOutlined,
   ThunderboltOutlined,
@@ -26,12 +25,14 @@ import {
   ExportOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
+import { useLanguage, Language } from '../i18n';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
 
 export const Settings: React.FC = () => {
   const { api } = useElectronAPI();
+  const { t, language, setLanguage } = useLanguage();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<Record<string, any>>({});
@@ -53,7 +54,7 @@ export const Settings: React.FC = () => {
         // Преобразуем строковые значения в нужные типы
         form.setFieldsValue({
           theme: data.theme || 'dark',
-          language: data.language || 'ru',
+          language: data.language || language,
           notification_enabled: data.notification_enabled === 'true',
           sound_enabled: data.sound_enabled === 'true',
           monitoring_interval: parseInt(data.monitoring_interval || '60'),
@@ -62,7 +63,7 @@ export const Settings: React.FC = () => {
         });
       }
     } catch (error) {
-      message.error('Ошибка загрузки настроек');
+      message.error(t.common.error);
     } finally {
       setLoading(false);
     }
@@ -78,26 +79,35 @@ export const Settings: React.FC = () => {
         await api.settings.set(key, String(value));
       }
 
-      message.success('Настройки сохранены');
+      message.success(t.settings.saved);
 
       // Применяем тему
       if (values.theme !== settings.theme) {
         applyTheme(values.theme);
       }
+
+      // Применяем язык
+      if (values.language !== language) {
+        handleLanguageChange(values.language);
+      }
     } catch (error) {
-      message.error('Ошибка сохранения настроек');
+      message.error(t.common.error);
     } finally {
       setLoading(false);
     }
   };
 
   const applyTheme = (theme: string) => {
-    // Здесь можно добавить логику применения темы
     document.body.className = theme === 'dark' ? 'dark-theme' : 'light-theme';
   };
 
+  const handleLanguageChange = (lang: Language) => {
+    setLanguage(lang);
+    // Отправляем событие для обновления локали Ant Design
+    window.dispatchEvent(new Event('languageChange'));
+  };
+
   const handleImport = async () => {
-    // Создаем input для выбора файла
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
@@ -112,14 +122,14 @@ export const Settings: React.FC = () => {
             if (api) {
               const response = await api.system.importData(data);
               if (response.success) {
-                message.success('Данные успешно импортированы');
-                window.location.reload(); // Перезагружаем для применения изменений
+                message.success(t.settings.importSuccess);
+                window.location.reload();
               } else {
-                message.error('Ошибка импорта данных');
+                message.error(t.common.error);
               }
             }
           } catch (error) {
-            message.error('Неверный формат файла');
+            message.error(t.common.error);
           }
         };
         reader.readAsText(file);
@@ -135,10 +145,10 @@ export const Settings: React.FC = () => {
     try {
       const response = await api.system.exportData('json');
       if (response.success) {
-        message.success('Конфигурация экспортирована');
+        message.success(t.settings.exportSuccess);
       }
     } catch (error) {
-      message.error('Ошибка экспорта');
+      message.error(t.common.error);
     }
   };
 
@@ -152,19 +162,19 @@ export const Settings: React.FC = () => {
       alert_threshold: 3,
       auto_start: true,
     });
-    message.info('Настройки сброшены к значениям по умолчанию');
+    message.info(t.settings.resetDone);
   };
 
   return (
     <div>
-      <Card title="Настройки приложения">
+      <Card title={t.settings.title}>
         <Form
           form={form}
           layout="vertical"
           onFinish={saveSettings}
           initialValues={{
             theme: 'dark',
-            language: 'ru',
+            language: language,
             notification_enabled: true,
             sound_enabled: true,
             monitoring_interval: 60,
@@ -177,22 +187,22 @@ export const Settings: React.FC = () => {
               tab={
                 <span>
                   <DesktopOutlined />
-                  Основные
+                  {t.settings.general}
                 </span>
               }
               key="general"
             >
               <Row gutter={24}>
                 <Col span={12}>
-                  <Form.Item name="theme" label="Тема оформления">
-                    <Radio.Group>
-                      <Radio.Button value="light">Светлая</Radio.Button>
-                      <Radio.Button value="dark">Тёмная</Radio.Button>
+                  <Form.Item name="theme" label={t.settings.theme}>
+                    <Radio.Group onChange={(e) => applyTheme(e.target.value)}>
+                      <Radio.Button value="light">{t.settings.themeLight}</Radio.Button>
+                      <Radio.Button value="dark">{t.settings.themeDark}</Radio.Button>
                     </Radio.Group>
                   </Form.Item>
 
-                  <Form.Item name="language" label="Язык интерфейса">
-                    <Select>
+                  <Form.Item name="language" label={t.settings.language}>
+                    <Select onChange={(value) => handleLanguageChange(value as Language)}>
                       <Option value="ru">Русский</Option>
                       <Option value="en">English</Option>
                     </Select>
@@ -200,7 +210,7 @@ export const Settings: React.FC = () => {
 
                   <Form.Item
                     name="auto_start"
-                    label="Автозапуск при старте Windows"
+                    label={t.settings.autoStart}
                     valuePropName="checked"
                   >
                     <Switch />
@@ -209,8 +219,11 @@ export const Settings: React.FC = () => {
 
                 <Col span={12}>
                   <Alert
-                    message="Информация"
-                    description="Некоторые настройки вступят в силу после перезапуска приложения"
+                    message={t.common.info}
+                    description={language === 'ru'
+                      ? "Некоторые настройки вступят в силу после перезапуска приложения"
+                      : "Some settings will take effect after restarting the application"
+                    }
                     type="info"
                     showIcon
                   />
@@ -222,7 +235,7 @@ export const Settings: React.FC = () => {
               tab={
                 <span>
                   <ThunderboltOutlined />
-                  Мониторинг
+                  {t.settings.monitoring}
                 </span>
               }
               key="monitoring"
@@ -231,39 +244,48 @@ export const Settings: React.FC = () => {
                 <Col span={12}>
                   <Form.Item
                     name="monitoring_interval"
-                    label="Интервал проверки по умолчанию (сек)"
+                    label={t.settings.monitoringInterval}
                     rules={[{ type: 'number', min: 10, max: 3600 }]}
                   >
                     <InputNumber
                       min={10}
                       max={3600}
                       style={{ width: '100%' }}
-                      addonAfter="секунд"
+                      addonAfter={language === 'ru' ? 'секунд' : 'sec'}
                     />
                   </Form.Item>
 
                   <Form.Item
                     name="alert_threshold"
-                    label="Порог срабатывания алерта"
-                    tooltip="Количество неудачных проверок до отправки уведомления"
+                    label={t.settings.alertThreshold}
+                    tooltip={language === 'ru'
+                      ? "Количество неудачных проверок до отправки уведомления"
+                      : "Number of failed checks before sending notification"
+                    }
                   >
                     <InputNumber
                       min={1}
                       max={10}
                       style={{ width: '100%' }}
-                      addonAfter="проверок"
+                      addonAfter={language === 'ru' ? 'проверок' : 'checks'}
                     />
                   </Form.Item>
                 </Col>
 
                 <Col span={12}>
                   <Alert
-                    message="Рекомендации"
+                    message={language === 'ru' ? 'Рекомендации' : 'Recommendations'}
                     description={
                       <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
-                        <li>Для критичных устройств используйте интервал 30-60 сек</li>
-                        <li>Для менее важных устройств достаточно 120-300 сек</li>
-                        <li>Слишком частые проверки могут создать нагрузку на сеть</li>
+                        <li>{language === 'ru'
+                          ? 'Для критичных устройств используйте интервал 30-60 сек'
+                          : 'For critical devices use interval 30-60 sec'}</li>
+                        <li>{language === 'ru'
+                          ? 'Для менее важных устройств достаточно 120-300 сек'
+                          : 'For less important devices 120-300 sec is enough'}</li>
+                        <li>{language === 'ru'
+                          ? 'Слишком частые проверки могут создать нагрузку на сеть'
+                          : 'Too frequent checks can create network load'}</li>
                       </ul>
                     }
                     type="warning"
@@ -277,7 +299,7 @@ export const Settings: React.FC = () => {
               tab={
                 <span>
                   <BellOutlined />
-                  Уведомления
+                  {t.settings.notifications}
                 </span>
               }
               key="notifications"
@@ -286,7 +308,7 @@ export const Settings: React.FC = () => {
                 <Col span={12}>
                   <Form.Item
                     name="notification_enabled"
-                    label="Системные уведомления"
+                    label={t.settings.systemNotifications}
                     valuePropName="checked"
                   >
                     <Switch />
@@ -294,7 +316,7 @@ export const Settings: React.FC = () => {
 
                   <Form.Item
                     name="sound_enabled"
-                    label="Звуковые уведомления"
+                    label={t.settings.soundNotifications}
                     valuePropName="checked"
                   >
                     <Switch />
@@ -303,12 +325,12 @@ export const Settings: React.FC = () => {
                   <Divider />
 
                   <Alert
-                    message="Типы уведомлений"
+                    message={language === 'ru' ? 'Типы уведомлений' : 'Notification types'}
                     description={
                       <Space direction="vertical" style={{ width: '100%' }}>
-                        <div>🔴 Критичные - устройство недоступно</div>
-                        <div>🟡 Предупреждения - высокое время отклика</div>
-                        <div>🟢 Информационные - устройство снова в сети</div>
+                        <div>🔴 {language === 'ru' ? 'Критичные - устройство недоступно' : 'Critical - device unavailable'}</div>
+                        <div>🟡 {language === 'ru' ? 'Предупреждения - высокое время отклика' : 'Warnings - high response time'}</div>
+                        <div>🟢 {language === 'ru' ? 'Информационные - устройство снова в сети' : 'Info - device back online'}</div>
                       </Space>
                     }
                     type="info"
@@ -316,20 +338,20 @@ export const Settings: React.FC = () => {
                 </Col>
 
                 <Col span={12}>
-                  <Card title="Тестирование уведомлений" size="small">
+                  <Card title={language === 'ru' ? 'Тестирование уведомлений' : 'Test notifications'} size="small">
                     <Space direction="vertical" style={{ width: '100%' }}>
                       <Button
                         block
                         onClick={() => {
                           if (api) {
                             api.system.showNotification(
-                              'Тестовое уведомление',
-                              'Это тестовое уведомление от Network Monitor'
+                              language === 'ru' ? 'Тестовое уведомление' : 'Test notification',
+                              language === 'ru' ? 'Это тестовое уведомление от SCC' : 'This is a test notification from SCC'
                             );
                           }
                         }}
                       >
-                        Отправить тестовое уведомление
+                        {t.settings.testNotification}
                       </Button>
                     </Space>
                   </Card>
@@ -341,29 +363,33 @@ export const Settings: React.FC = () => {
               tab={
                 <span>
                   <GlobalOutlined />
-                  Импорт/Экспорт
+                  {t.settings.importExport}
                 </span>
               }
               key="import-export"
             >
               <Row gutter={24}>
                 <Col span={12}>
-                  <Card title="Экспорт конфигурации" size="small">
-                    <p>Сохранить текущую конфигурацию устройств и настроек</p>
+                  <Card title={language === 'ru' ? 'Экспорт конфигурации' : 'Export configuration'} size="small">
+                    <p>{language === 'ru'
+                      ? 'Сохранить текущую конфигурацию устройств и настроек'
+                      : 'Save current device configuration and settings'}</p>
                     <Space>
                       <Button icon={<ExportOutlined />} onClick={handleExport}>
-                        Экспорт в JSON
+                        {t.settings.export}
                       </Button>
                     </Space>
                   </Card>
                 </Col>
 
                 <Col span={12}>
-                  <Card title="Импорт конфигурации" size="small">
-                    <p>Загрузить конфигурацию из файла</p>
+                  <Card title={language === 'ru' ? 'Импорт конфигурации' : 'Import configuration'} size="small">
+                    <p>{language === 'ru'
+                      ? 'Загрузить конфигурацию из файла'
+                      : 'Load configuration from file'}</p>
                     <Space>
                       <Button icon={<ImportOutlined />} onClick={handleImport}>
-                        Импорт из файла
+                        {t.settings.import}
                       </Button>
                     </Space>
                   </Card>
@@ -373,8 +399,11 @@ export const Settings: React.FC = () => {
               <Divider />
 
               <Alert
-                message="Внимание"
-                description="При импорте конфигурации текущие настройки будут перезаписаны"
+                message={t.common.warning}
+                description={language === 'ru'
+                  ? 'При импорте конфигурации текущие настройки будут перезаписаны'
+                  : 'Importing configuration will overwrite current settings'
+                }
                 type="warning"
                 showIcon
               />
@@ -385,13 +414,10 @@ export const Settings: React.FC = () => {
 
           <Space>
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading}>
-              Сохранить настройки
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={loadSettings}>
-              Перезагрузить
+              {t.settings.save}
             </Button>
             <Button onClick={resetToDefaults}>
-              Сбросить к значениям по умолчанию
+              {t.settings.reset}
             </Button>
           </Space>
         </Form>

@@ -11,6 +11,11 @@ interface ElectronAPI {
     getEvents: (limit?: number) => Promise<any>;
     getHistory: (limit?: number) => Promise<any>;
     clearEvents: () => Promise<any>;
+    // Функции для привязки камер к коммутаторам
+    getSwitches: () => Promise<any>;
+    getAvailablePorts: (switchId: number, currentCameraId?: number) => Promise<any>;
+    getOccupiedPorts: (switchId: number) => Promise<any>;
+    getCamerasOnSwitch: (switchId: number) => Promise<any>;
   };
   monitoring: {
     startMonitoring: () => Promise<any>;
@@ -30,6 +35,19 @@ interface ElectronAPI {
     showNotification: (title: string, body: string) => Promise<any>;
     exportData: (format: string) => Promise<any>;
     importData: (data: any) => Promise<any>;
+    openUrl: (url: string) => Promise<any>;
+  };
+  maps: {
+    getAll: () => Promise<any>;
+    get: (id: number) => Promise<any>;
+    add: (map: any) => Promise<any>;
+    update: (id: number, map: any) => Promise<any>;
+    delete: (id: number) => Promise<any>;
+    getDevices: (mapId: number) => Promise<any>;
+    updateDevicePosition: (deviceId: number, mapId: number, x: number, y: number) => Promise<any>;
+    removeDevice: (deviceId: number) => Promise<any>;
+    uploadImage: (mapId: number) => Promise<any>;
+    getImage: (imagePath: string) => Promise<any>;
   };
 }
 
@@ -235,6 +253,57 @@ const createLocalStorageAPI = (): ElectronAPI => {
       clearEvents: async () => {
         localStorage.setItem('events', '[]');
         return { success: true };
+      },
+      // Функции для привязки камер к коммутаторам
+      getSwitches: async () => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const switches = devices.filter((d: any) => d.type === 'switch' || d.type === 'router');
+          return { success: true, data: switches };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      getAvailablePorts: async (switchId: number, currentCameraId?: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const switchDevice = devices.find((d: any) => d.id === switchId);
+          if (!switchDevice || !switchDevice.port_count) return { success: true, data: [] };
+
+          const occupiedPorts = devices
+            .filter((d: any) => d.parent_device_id === switchId && d.id !== currentCameraId)
+            .map((d: any) => d.port_number);
+
+          const available = [];
+          for (let i = 1; i <= switchDevice.port_count; i++) {
+            if (!occupiedPorts.includes(i)) {
+              available.push(i);
+            }
+          }
+          return { success: true, data: available };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      getOccupiedPorts: async (switchId: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const cameras = devices
+            .filter((d: any) => d.parent_device_id === switchId)
+            .map((d: any) => ({ port_number: d.port_number, camera_id: d.id, camera_name: d.name }));
+          return { success: true, data: cameras };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      getCamerasOnSwitch: async (switchId: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const cameras = devices.filter((d: any) => d.parent_device_id === switchId);
+          return { success: true, data: cameras };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
       },
     },
     monitoring: {
@@ -564,6 +633,120 @@ const createLocalStorageAPI = (): ElectronAPI => {
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
+      },
+      openUrl: async (url: string) => {
+        // In browser mode, just open in new tab
+        window.open(url, '_blank');
+        return { success: true };
+      },
+    },
+    maps: {
+      getAll: async () => {
+        try {
+          const maps = JSON.parse(localStorage.getItem('floor_maps') || '[]');
+          return { success: true, data: maps };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      get: async (id: number) => {
+        try {
+          const maps = JSON.parse(localStorage.getItem('floor_maps') || '[]');
+          const map = maps.find((m: any) => m.id === id);
+          return { success: true, data: map };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      add: async (map: any) => {
+        try {
+          const maps = JSON.parse(localStorage.getItem('floor_maps') || '[]');
+          const newMap = {
+            ...map,
+            id: Date.now(),
+            created_at: new Date().toISOString(),
+          };
+          maps.push(newMap);
+          localStorage.setItem('floor_maps', JSON.stringify(maps));
+          return { success: true, data: newMap };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      update: async (id: number, map: any) => {
+        try {
+          const maps = JSON.parse(localStorage.getItem('floor_maps') || '[]');
+          const index = maps.findIndex((m: any) => m.id === id);
+          if (index !== -1) {
+            maps[index] = { ...maps[index], ...map };
+            localStorage.setItem('floor_maps', JSON.stringify(maps));
+            return { success: true, data: true };
+          }
+          return { success: false, error: 'Map not found' };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      delete: async (id: number) => {
+        try {
+          const maps = JSON.parse(localStorage.getItem('floor_maps') || '[]');
+          const filtered = maps.filter((m: any) => m.id !== id);
+          localStorage.setItem('floor_maps', JSON.stringify(filtered));
+          // Отвязываем устройства от карты
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const updatedDevices = devices.map((d: any) =>
+            d.floor_map_id === id ? { ...d, floor_map_id: null, map_x: null, map_y: null } : d
+          );
+          localStorage.setItem('devices', JSON.stringify(updatedDevices));
+          return { success: true, data: true };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      getDevices: async (mapId: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const mapDevices = devices.filter((d: any) => d.floor_map_id === mapId);
+          return { success: true, data: mapDevices };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      updateDevicePosition: async (deviceId: number, mapId: number, x: number, y: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const index = devices.findIndex((d: any) => d.id === deviceId);
+          if (index !== -1) {
+            devices[index] = { ...devices[index], floor_map_id: mapId, map_x: x, map_y: y };
+            localStorage.setItem('devices', JSON.stringify(devices));
+            return { success: true, data: true };
+          }
+          return { success: false, error: 'Device not found' };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      removeDevice: async (deviceId: number) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const index = devices.findIndex((d: any) => d.id === deviceId);
+          if (index !== -1) {
+            devices[index] = { ...devices[index], floor_map_id: null, map_x: null, map_y: null };
+            localStorage.setItem('devices', JSON.stringify(devices));
+            return { success: true, data: true };
+          }
+          return { success: false, error: 'Device not found' };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      uploadImage: async () => {
+        // В браузере нельзя загружать файлы так же как в Electron
+        return { success: false, error: 'Not supported in browser mode' };
+      },
+      getImage: async () => {
+        // В браузере нет доступа к локальным файлам
+        return { success: false, error: 'Not supported in browser mode' };
       },
     },
   };

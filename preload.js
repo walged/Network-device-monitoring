@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPoEStatus: (switchId) => ipcRenderer.invoke('snmp:getPoEStatus', switchId),
     setPoE: (switchId, port, enabled) => ipcRenderer.invoke('snmp:setPoE', switchId, port, enabled),
     resetPoE: (switchId, port) => ipcRenderer.invoke('snmp:resetPoE', switchId, port),
+    test: (ip, community) => ipcRenderer.invoke('snmp:test', ip, community),
   },
 
   // События

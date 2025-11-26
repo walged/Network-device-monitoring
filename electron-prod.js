@@ -114,22 +114,54 @@ const { exec } = require('child_process');
 // SNMP library for PoE control
 const snmp = require('net-snmp');
 
-// TFortis SNMP OIDs for PoE management (from TFortis-407-mib-v2.3.mib)
+// TFortis SNMP OIDs for PoE management
 // Enterprise OID: 1.3.6.1.4.1.42019 (Fort-Telecom)
 // Structure: forttelecomMIB.switch.psw = 42019.3.2
-const TFORTIS_POE_OIDS = {
-  // Config (read-write): configPSW.portPoe.portPoeTable.portPoeEntry
-  // OID: 42019.3.2.1.3.1.1.{column}.{port}
-  // portPoeState: enabled(1), disabled(2)
-  poeControl: '1.3.6.1.4.1.42019.3.2.1.3.1.1.2',  // .{port} - 1=enabled, 2=disabled
 
+// OIDs для MIB v2.3 (PSW-2G+, PSW-2G6F+, PSW-2G8F+ и т.д.) - полная поддержка SNMP
+const TFORTIS_POE_OIDS_V23 = {
+  // Config (read-write): configPSW.portPoe.portPoeTable.portPoeEntry
+  poeControl: '1.3.6.1.4.1.42019.3.2.1.3.1.1.2',  // .{port} - 1=enabled, 2=disabled
   // Status (read-only): statusPSW.poeStatus.poeStatusTable.poeStatusEntry
-  // OID: 42019.3.2.2.5.1.1.{column}.{port}
-  // portPoeStatusState: up(1), down(2)
-  // portPoeStatusPower: power in mW
   poeStatus: '1.3.6.1.4.1.42019.3.2.2.5.1.1.2',   // .{port} - 1=up, 2=down
   poePower: '1.3.6.1.4.1.42019.3.2.2.5.1.1.3',    // .{port} - power in mW
 };
+
+// OIDs для MIB v1.3 (PSW-2G, PSW-2G4F) - только SET, нет GET статуса!
+// Структура: psw2g.set.port_sett.psSp.{feX|geX}PS.poe{FeX|GeX}PS
+const TFORTIS_POE_OIDS_V13 = {
+  // PoE Control - фиксированные OID-ы для каждого порта
+  poeControl: {
+    1: '1.3.6.1.4.1.42019.3.2.1.2.0.1.4', // FE1 - poeFe1PS
+    2: '1.3.6.1.4.1.42019.3.2.1.2.0.2.4', // FE2 - poeFe2PS
+    3: '1.3.6.1.4.1.42019.3.2.1.2.0.3.4', // FE3 - poeFe3PS
+    4: '1.3.6.1.4.1.42019.3.2.1.2.0.4.4', // GE1 - poeGe1PS
+    5: '1.3.6.1.4.1.42019.3.2.1.2.0.5.4', // GE2 - poeGe2PS
+  },
+};
+
+// Для обратной совместимости - оставляем alias на v2.3
+const TFORTIS_POE_OIDS = TFORTIS_POE_OIDS_V23;
+
+// Конфигурации моделей TFortis (дублирование из types для использования в main process)
+const TFORTIS_MODEL_CONFIGS = {
+  'PSW-2G': { mibVersion: 'v1.3', snmpGetStatus: false, snmpSetPoe: true, snmpVersion: '1', ports: 5 },
+  'PSW-2G4F': { mibVersion: 'v1.3', snmpGetStatus: false, snmpSetPoe: true, snmpVersion: '1', ports: 6 },
+  'PSW-2G4F-Box': { mibVersion: 'v1.3', snmpGetStatus: false, snmpSetPoe: true, snmpVersion: '1', ports: 6 },
+  'PSW-2G+': { mibVersion: 'v2.3', snmpGetStatus: true, snmpSetPoe: true, snmpVersion: '2c', ports: 6 },
+  'PSW-2G6F+': { mibVersion: 'v2.3', snmpGetStatus: true, snmpSetPoe: true, snmpVersion: '2c', ports: 8 },
+  'PSW-2G8F+': { mibVersion: 'v2.3', snmpGetStatus: true, snmpSetPoe: true, snmpVersion: '2c', ports: 10 },
+  'PSW-2G+UPS': { mibVersion: 'v2.3', snmpGetStatus: true, snmpSetPoe: true, snmpVersion: '2c', ports: 6 },
+  'PSW-2G8F+UPS': { mibVersion: 'v2.3', snmpGetStatus: true, snmpSetPoe: true, snmpVersion: '2c', ports: 10 },
+  'other': { mibVersion: 'v2.3', snmpGetStatus: false, snmpSetPoe: true, snmpVersion: '2c', ports: 8 },
+};
+
+// Получить конфигурацию модели TFortis
+function getTFortisModelConfig(model) {
+  if (!model) return TFORTIS_MODEL_CONFIGS['other'];
+  const config = TFORTIS_MODEL_CONFIGS[model];
+  return config || TFORTIS_MODEL_CONFIGS['other'];
+}
 
 // Standard SNMP OIDs
 const STANDARD_OIDS = {
@@ -715,16 +747,14 @@ async function pingDevice(ip, retries = 3, retryDelay = 2000) {
 // ============ SNMP PoE Management Functions ============
 
 /**
- * Get PoE status for all ports of a switch
+ * Test basic SNMP connectivity using standard OIDs
  * @param {string} ip - Switch IP address
- * @param {string} community - SNMP community string (default: 'public')
- * @param {number} portCount - Number of ports to check
+ * @param {string} community - SNMP community string
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-async function getPoEStatus(ip, community = 'public', portCount = 8) {
+async function testSNMPConnection(ip, community = 'public') {
   return new Promise((resolve) => {
-    logInfo('SNMP', `Creating session to ${ip} with community "${community}"`);
-    logDebug('SNMP', `Port count: ${portCount}`);
+    logInfo('SNMP', `Testing basic SNMP connection to ${ip} with community "${community}"`);
 
     const session = snmp.createSession(ip, community, {
       version: snmp.Version2c,
@@ -732,10 +762,94 @@ async function getPoEStatus(ip, community = 'public', portCount = 8) {
       retries: 1
     });
 
+    // Standard MIB-II OIDs that any SNMP device should support
+    const testOids = [
+      '1.3.6.1.2.1.1.1.0',  // sysDescr - System description
+      '1.3.6.1.2.1.1.5.0',  // sysName - System name
+    ];
+
+    session.get(testOids, (error, varbinds) => {
+      session.close();
+
+      if (error) {
+        logError('SNMP', `Basic SNMP test failed for ${ip}: ${error.message}`);
+        resolve({ success: false, error: error.message });
+        return;
+      }
+
+      const result = {
+        sysDescr: '',
+        sysName: ''
+      };
+
+      if (varbinds && varbinds.length > 0) {
+        for (const varbind of varbinds) {
+          if (!snmp.isVarbindError(varbind)) {
+            const oidStr = String(varbind.oid);
+            if (oidStr.includes('1.3.6.1.2.1.1.1')) {
+              result.sysDescr = varbind.value.toString();
+            } else if (oidStr.includes('1.3.6.1.2.1.1.5')) {
+              result.sysName = varbind.value.toString();
+            }
+          }
+        }
+      }
+
+      logInfo('SNMP', `Basic SNMP test successful for ${ip}`, result);
+      resolve({ success: true, data: result });
+    });
+  });
+}
+
+/**
+ * Get PoE status for all ports of a switch
+ * @param {string} ip - Switch IP address
+ * @param {string} community - SNMP community string (default: 'public')
+ * @param {number} portCount - Number of ports to check
+ * @param {object} modelConfig - TFortis model configuration (optional)
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function getPoEStatus(ip, community = 'public', portCount = 8, modelConfig = null) {
+  return new Promise((resolve) => {
+    logInfo('SNMP', `Creating session to ${ip} with community "${community}"`);
+    logDebug('SNMP', `Port count: ${portCount}, Model config: ${JSON.stringify(modelConfig)}`);
+
+    // Проверяем поддержку SNMP GET для модели
+    if (modelConfig && modelConfig.snmpGetStatus === false) {
+      logInfo('SNMP', `Model does not support SNMP GET status, returning empty status`);
+
+      // Возвращаем пустой статус с флагом "не поддерживается"
+      const ports = [];
+      for (let port = 1; port <= portCount; port++) {
+        ports.push({ port: port, status: 'unsupported', power: 0 });
+      }
+
+      resolve({
+        success: true,
+        data: {
+          ip,
+          ports: ports,
+          totalPorts: portCount,
+          statusSupported: false,
+          message: 'Модель не поддерживает чтение статуса PoE через SNMP'
+        }
+      });
+      return;
+    }
+
+    // Определяем версию SNMP
+    const snmpVersion = modelConfig?.snmpVersion === '1' ? snmp.Version1 : snmp.Version2c;
+
+    const session = snmp.createSession(ip, community, {
+      version: snmpVersion,
+      timeout: 5000,
+      retries: 1
+    });
+
     const oids = [];
     for (let port = 1; port <= portCount; port++) {
-      oids.push(`${TFORTIS_POE_OIDS.poeStatus}.${port}`);
-      oids.push(`${TFORTIS_POE_OIDS.poePower}.${port}`);
+      oids.push(`${TFORTIS_POE_OIDS_V23.poeStatus}.${port}`);
+      oids.push(`${TFORTIS_POE_OIDS_V23.poePower}.${port}`);
     }
 
     logInfo('SNMP', `Getting PoE status for ${ip}, ports 1-${portCount}`);
@@ -787,8 +901,8 @@ async function getPoEStatus(ip, community = 'public', portCount = 8) {
           }
 
           // Check which OID type this is by comparing the base OID
-          const statusOidBase = TFORTIS_POE_OIDS.poeStatus;
-          const powerOidBase = TFORTIS_POE_OIDS.poePower;
+          const statusOidBase = TFORTIS_POE_OIDS_V23.poeStatus;
+          const powerOidBase = TFORTIS_POE_OIDS_V23.poePower;
 
           if (oidStr.startsWith(statusOidBase)) {
             // TFortis status: up(1)=on, down(2)=off (from MIB file)
@@ -816,7 +930,8 @@ async function getPoEStatus(ip, community = 'public', portCount = 8) {
         data: {
           ip,
           ports: portList,
-          totalPorts: portCount
+          totalPorts: portCount,
+          statusSupported: true
         }
       });
     });
@@ -829,24 +944,52 @@ async function getPoEStatus(ip, community = 'public', portCount = 8) {
  * @param {number} port - Port number
  * @param {boolean} enabled - true = on, false = off
  * @param {string} community - SNMP write community (default: 'private')
+ * @param {object} modelConfig - TFortis model configuration (optional)
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-async function setPoEState(ip, port, enabled, community = 'private') {
+async function setPoEState(ip, port, enabled, community = 'private', modelConfig = null) {
   return new Promise((resolve) => {
-    console.log(`[SNMP] Creating write session to ${ip} with community "${community}"`);
+    logInfo('SNMP', `Creating write session to ${ip} with community "${community}"`);
+    logDebug('SNMP', `Model config:`, modelConfig);
+
+    // Проверяем поддержку SNMP SET для модели
+    if (modelConfig && modelConfig.snmpSetPoe === false) {
+      logError('SNMP', `Model does not support PoE control via SNMP`);
+      resolve({ success: false, error: 'Модель не поддерживает управление PoE через SNMP' });
+      return;
+    }
+
+    // Определяем версию SNMP
+    const snmpVersion = modelConfig?.snmpVersion === '1' ? snmp.Version1 : snmp.Version2c;
 
     const session = snmp.createSession(ip, community, {
-      version: snmp.Version2c,
+      version: snmpVersion,
       timeout: 5000,
       retries: 1
     });
 
-    const oid = `${TFORTIS_POE_OIDS.poeControl}.${port}`;
+    // Определяем OID в зависимости от версии MIB
+    let oid;
+    if (modelConfig?.mibVersion === 'v1.3') {
+      // MIB v1.3 - фиксированные OID-ы для каждого порта
+      const v13Oids = TFORTIS_POE_OIDS_V13.poeControl;
+      oid = v13Oids[port];
+      if (!oid) {
+        logError('SNMP', `Port ${port} not supported for MIB v1.3 (max 5 ports)`);
+        session.close();
+        resolve({ success: false, error: `Порт ${port} не поддерживается для этой модели` });
+        return;
+      }
+    } else {
+      // MIB v2.3 - табличный OID
+      oid = `${TFORTIS_POE_OIDS_V23.poeControl}.${port}`;
+    }
+
     // TFortis uses: 1=enabled, 2=disabled (from MIB file)
     const value = enabled ? 1 : 2;
 
-    console.log(`[SNMP] Setting PoE on ${ip} port ${port} to ${enabled ? 'ENABLED(1)' : 'DISABLED(2)'}`);
-    console.log(`[SNMP] OID: ${oid}, Value: ${value}`);
+    logInfo('SNMP', `Setting PoE on ${ip} port ${port} to ${enabled ? 'ENABLED(1)' : 'DISABLED(2)'}`);
+    logInfo('SNMP', `OID: ${oid}, Value: ${value}, MIB version: ${modelConfig?.mibVersion || 'v2.3'}, SNMP version: ${modelConfig?.snmpVersion || '2c'}`);
 
     const varbinds = [{
       oid: oid,
@@ -854,19 +997,19 @@ async function setPoEState(ip, port, enabled, community = 'private') {
       value: value
     }];
 
-    session.set(varbinds, (error, varbinds) => {
+    session.set(varbinds, (error, responseVarbinds) => {
       session.close();
 
       if (error) {
-        console.error(`[SNMP] Error setting PoE on ${ip} port ${port}:`, error.message);
-        console.error(`[SNMP] Full error:`, error);
+        logError('SNMP', `Error setting PoE on ${ip} port ${port}: ${error.message}`);
+        logError('SNMP', `Full error details:`, { name: error.name, code: error.code, toString: error.toString() });
         resolve({ success: false, error: error.message });
         return;
       }
 
-      console.log(`[SNMP] Successfully set PoE on ${ip} port ${port} to ${enabled ? 'ON' : 'OFF'}`);
-      if (varbinds) {
-        console.log(`[SNMP] Response varbinds:`, varbinds);
+      logInfo('SNMP', `Successfully set PoE on ${ip} port ${port} to ${enabled ? 'ON' : 'OFF'}`);
+      if (responseVarbinds) {
+        logDebug('SNMP', `Response varbinds:`, responseVarbinds);
       }
       resolve({ success: true });
     });
@@ -879,13 +1022,15 @@ async function setPoEState(ip, port, enabled, community = 'private') {
  * @param {number} port - Port number
  * @param {string} community - SNMP write community (default: 'private')
  * @param {number} delay - Delay in ms between off and on (default: 3000)
+ * @param {object} modelConfig - TFortis model configuration (optional)
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-async function resetPoE(ip, port, community = 'private', delay = 3000) {
-  console.log(`[SNMP] Resetting PoE on ${ip} port ${port} (delay: ${delay}ms)`);
+async function resetPoE(ip, port, community = 'private', delay = 3000, modelConfig = null) {
+  logInfo('SNMP', `Resetting PoE on ${ip} port ${port} (delay: ${delay}ms)`);
+  logDebug('SNMP', `Model config for reset:`, modelConfig);
 
   // Turn off
-  const offResult = await setPoEState(ip, port, false, community);
+  const offResult = await setPoEState(ip, port, false, community, modelConfig);
   if (!offResult.success) {
     return { success: false, error: `Failed to turn off PoE: ${offResult.error}` };
   }
@@ -894,12 +1039,12 @@ async function resetPoE(ip, port, community = 'private', delay = 3000) {
   await new Promise(resolve => setTimeout(resolve, delay));
 
   // Turn on
-  const onResult = await setPoEState(ip, port, true, community);
+  const onResult = await setPoEState(ip, port, true, community, modelConfig);
   if (!onResult.success) {
     return { success: false, error: `Failed to turn on PoE: ${onResult.error}` };
   }
 
-  console.log(`[SNMP] PoE reset completed on ${ip} port ${port}`);
+  logInfo('SNMP', `PoE reset completed on ${ip} port ${port}`);
   return { success: true };
 }
 
@@ -1051,28 +1196,127 @@ function stopMonitoring() {
 
 function createTray() {
   // Создаем иконку для трея
-  let iconPath = path.join(__dirname, 'scc.ico');
+  const { nativeImage } = require('electron');
+  let iconPath = null;
+  let iconFound = false;
 
-  // В продакшн-сборке ищем иконку в разных местах
-  if (!isDev) {
-    const possiblePaths = [
-      path.join(__dirname, 'scc.ico'),
-      path.join(__dirname, 'scc.png'),
-      path.join(process.resourcesPath, 'assets', 'icons', 'icon.ico'),
-      path.join(process.resourcesPath, 'assets', 'icons', 'icon.png'),
-    ];
+  // СУПЕР ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ для отладки
+  logInfo('Tray', '========== TRAY ICON DEBUG START ==========');
+  logInfo('Tray', `isDev: ${isDev}`);
+  logInfo('Tray', `NODE_ENV: ${process.env.NODE_ENV}`);
+  logInfo('Tray', `__dirname: ${__dirname}`);
+  logInfo('Tray', `process.resourcesPath: ${process.resourcesPath}`);
+  logInfo('Tray', `app.getPath('exe'): ${app.getPath('exe')}`);
+  logInfo('Tray', `app.getAppPath(): ${app.getAppPath()}`);
+  logInfo('Tray', `app.isPackaged: ${app.isPackaged}`);
 
-    for (const p of possiblePaths) {
-      try {
-        if (require('fs').existsSync(p)) {
-          iconPath = p;
-          break;
-        }
-      } catch (e) {}
+  // Логируем содержимое ключевых директорий
+  try {
+    if (process.resourcesPath && fsSync.existsSync(process.resourcesPath)) {
+      const resourceFiles = fsSync.readdirSync(process.resourcesPath);
+      logInfo('Tray', `Files in resourcesPath: ${resourceFiles.join(', ')}`);
+    } else {
+      logInfo('Tray', `resourcesPath does not exist or is null`);
+    }
+  } catch (e) {
+    logError('Tray', `Error reading resourcesPath: ${e.message}`);
+  }
+
+  try {
+    const dirFiles = fsSync.readdirSync(__dirname);
+    const sccFiles = dirFiles.filter(f => f.toLowerCase().includes('scc'));
+    logInfo('Tray', `SCC files in __dirname: ${sccFiles.join(', ') || 'NONE'}`);
+  } catch (e) {
+    logError('Tray', `Error reading __dirname: ${e.message}`);
+  }
+
+  // Строим список путей для поиска иконки
+  const possiblePaths = [];
+
+  // 1. В упакованном приложении extraResources копируются в process.resourcesPath
+  if (process.resourcesPath) {
+    possiblePaths.push(
+      path.join(process.resourcesPath, 'scc.ico'),
+      path.join(process.resourcesPath, 'scc.png')
+    );
+  }
+
+  // 2. Файлы внутри ASAR архива (app.getAppPath)
+  if (app.getAppPath()) {
+    possiblePaths.push(
+      path.join(app.getAppPath(), 'scc.ico'),
+      path.join(app.getAppPath(), 'scc.png')
+    );
+  }
+
+  // 3. __dirname (для dev режима и если ASAR не используется)
+  possiblePaths.push(
+    path.join(__dirname, 'scc.ico'),
+    path.join(__dirname, 'scc.png')
+  );
+
+  // 4. Путь рядом с exe для portable
+  const exeDir = path.dirname(app.getPath('exe'));
+  possiblePaths.push(
+    path.join(exeDir, 'resources', 'scc.ico'),
+    path.join(exeDir, 'resources', 'scc.png'),
+    path.join(exeDir, 'scc.ico'),
+    path.join(exeDir, 'scc.png')
+  );
+
+  logInfo('Tray', `Will search in ${possiblePaths.length} paths`);
+
+  for (let i = 0; i < possiblePaths.length; i++) {
+    const p = possiblePaths[i];
+    try {
+      const exists = fsSync.existsSync(p);
+      logInfo('Tray', `[${i+1}] ${p} => ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+      if (exists && !iconFound) {
+        iconPath = p;
+        iconFound = true;
+        logInfo('Tray', `*** USING THIS ICON ***`);
+      }
+    } catch (e) {
+      logError('Tray', `[${i+1}] Error checking ${p}: ${e.message}`);
     }
   }
 
-  tray = new Tray(iconPath);
+  logInfo('Tray', '========== TRAY ICON DEBUG END ==========');
+
+  try {
+    if (iconFound && iconPath) {
+      logInfo('Tray', `Creating tray with icon: ${iconPath}`);
+      tray = new Tray(iconPath);
+      logInfo('Tray', 'Tray created successfully with custom icon');
+    } else {
+      // Fallback: создаем минимальную иконку 16x16 программно
+      logError('Tray', `No icon found! Creating fallback 16x16 blue icon`);
+      const size = 16;
+      const buffer = Buffer.alloc(size * size * 4);
+      // Заполняем синим цветом (BGRA format)
+      for (let i = 0; i < size * size; i++) {
+        buffer[i * 4] = 255;     // B
+        buffer[i * 4 + 1] = 100; // G
+        buffer[i * 4 + 2] = 50;  // R
+        buffer[i * 4 + 3] = 255; // A
+      }
+      const fallbackIcon = nativeImage.createFromBuffer(buffer, { width: size, height: size });
+      tray = new Tray(fallbackIcon);
+      logInfo('Tray', 'Tray created with FALLBACK blue icon');
+    }
+  } catch (error) {
+    logError('Tray', `Failed to create tray: ${error.message}`);
+    logError('Tray', `Stack: ${error.stack}`);
+    // Всё равно пытаемся создать трей с пустой иконкой
+    try {
+      const emptyIcon = nativeImage.createEmpty();
+      tray = new Tray(emptyIcon);
+      logInfo('Tray', 'Tray created with EMPTY icon as last resort');
+    } catch (e2) {
+      logError('Tray', `Completely failed to create tray: ${e2.message}`);
+      return;
+    }
+  }
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -1170,7 +1414,38 @@ function updateTrayMenu() {
   tray.setToolTip(`SCC - ${monitoringRunning ? 'Мониторинг активен' : 'Мониторинг остановлен'}`);
 }
 
+// Функция для получения пути к иконке (работает и в dev и в prod)
+function getIconPath() {
+  const possiblePaths = [];
+
+  if (isDev) {
+    possiblePaths.push(
+      path.join(__dirname, 'scc.ico'),
+      path.join(__dirname, 'scc.png')
+    );
+  } else {
+    if (process.resourcesPath) {
+      possiblePaths.push(
+        path.join(process.resourcesPath, 'scc.ico'),
+        path.join(process.resourcesPath, 'scc.png')
+      );
+    }
+  }
+
+  for (const p of possiblePaths) {
+    if (fsSync.existsSync(p)) {
+      return p;
+    }
+  }
+
+  // Fallback на __dirname (для совместимости)
+  return path.join(__dirname, 'scc.ico');
+}
+
 function createWindow() {
+  const iconPath = getIconPath();
+  logInfo('Window', `Using icon path: ${iconPath}`);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -1180,7 +1455,7 @@ function createWindow() {
       webSecurity: false,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, 'scc.ico'),
+    icon: iconPath,
     title: 'Switch Camera Control (SCC)'
   });
 
@@ -1193,19 +1468,31 @@ function createWindow() {
 
   // Сворачивание в трей при закрытии окна (вместо выхода)
   mainWindow.on('close', (event) => {
-    if (!isQuitting) {
+    logInfo('Window', `=== CLOSE EVENT ===`);
+    logInfo('Window', `isQuitting: ${isQuitting}`);
+    logInfo('Window', `tray exists: ${tray !== null}`);
+    logInfo('Window', `tray destroyed: ${tray ? tray.isDestroyed() : 'N/A'}`);
+
+    if (!isQuitting && tray && !tray.isDestroyed()) {
+      logInfo('Window', 'Hiding window to tray (not quitting)');
       event.preventDefault();
       mainWindow.hide();
+      logInfo('Window', 'Window hidden successfully');
 
       // Показываем уведомление при первом сворачивании
       const shownTrayNotification = getSetting('shown_tray_notification');
+      logInfo('Window', `shownTrayNotification: ${shownTrayNotification}`);
+
       if (shownTrayNotification !== 'true' && Notification.isSupported()) {
+        logInfo('Window', 'Showing tray notification');
         new Notification({
           title: 'SCC работает в фоне',
           body: 'Программа свернута в системный трей. Двойной клик для открытия.'
         }).show();
         setSetting('shown_tray_notification', 'true');
       }
+    } else {
+      logInfo('Window', 'Allowing window to close (isQuitting or no tray)');
     }
   });
 
@@ -1759,25 +2046,79 @@ ipcMain.handle('snmp:getPoEStatus', async (_, switchId) => {
       return { success: false, error: 'Device not found' };
     }
 
+    // Получаем конфигурацию модели TFortis
+    const modelConfig = device.vendor === 'tfortis' ? getTFortisModelConfig(device.model) : null;
+
     logInfo('IPC', `Found device: ${device.name} (${device.ip})`, {
       id: device.id,
       vendor: device.vendor,
+      model: device.model,
       portCount: device.port_count,
-      snmpCommunity: device.snmp_community || 'public (default)'
+      snmpCommunity: device.snmp_community || 'public (default)',
+      modelConfig: modelConfig
     });
 
     const community = device.snmp_community || 'public';
-    const portCount = device.port_count || 8;
+    const portCount = device.port_count || (modelConfig?.ports || 8);
 
+    // Проверяем поддержку SNMP GET для модели TFortis
+    if (modelConfig && modelConfig.snmpGetStatus === false) {
+      logInfo('IPC', `Model ${device.model} does not support SNMP GET status, returning unsupported`);
+
+      // Возвращаем статус с флагом "не поддерживается"
+      const ports = [];
+      for (let port = 1; port <= portCount; port++) {
+        ports.push({ port: port, status: 'unsupported', power: 0 });
+      }
+
+      return {
+        success: true,
+        data: {
+          ip: device.ip,
+          ports: ports,
+          totalPorts: portCount,
+          statusSupported: false,
+          message: 'Модель не поддерживает чтение статуса PoE через SNMP. Доступна только перезагрузка PoE.'
+        }
+      };
+    }
+
+    // First, test basic SNMP connectivity (только для моделей с поддержкой GET)
+    logInfo('IPC', `Testing basic SNMP connection to ${device.ip}...`);
+    const testResult = await testSNMPConnection(device.ip, community);
+
+    if (!testResult.success) {
+      logError('IPC', `Basic SNMP test failed for ${device.ip}: ${testResult.error}`);
+      return {
+        success: false,
+        error: `SNMP не отвечает: ${testResult.error}. Проверьте настройки SNMP на коммутаторе.`
+      };
+    }
+
+    logInfo('IPC', `Basic SNMP test passed for ${device.ip}`, testResult.data);
+
+    // Now get PoE status
     logInfo('IPC', `Calling getPoEStatus for ${device.ip} with community "${community}" and ${portCount} ports`);
 
-    const result = await getPoEStatus(device.ip, community, portCount);
+    const result = await getPoEStatus(device.ip, community, portCount, modelConfig);
 
     logInfo('IPC', `getPoEStatus result for ${device.ip}`, { success: result.success, error: result.error });
 
     return result;
   } catch (error) {
     logError('IPC', `Exception in snmp:getPoEStatus: ${error.message}`, { stack: error.stack });
+    return { success: false, error: error.message };
+  }
+});
+
+// Test SNMP connection (diagnostic)
+ipcMain.handle('snmp:test', async (_, ip, community) => {
+  logInfo('IPC', `snmp:test called for ${ip} with community "${community}"`);
+  try {
+    const result = await testSNMPConnection(ip, community || 'public');
+    return result;
+  } catch (error) {
+    logError('IPC', `Exception in snmp:test: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
@@ -1790,10 +2131,13 @@ ipcMain.handle('snmp:setPoE', async (_, switchId, port, enabled) => {
       return { success: false, error: 'Device not found' };
     }
 
+    // Получаем конфигурацию модели TFortis
+    const modelConfig = device.vendor === 'tfortis' ? getTFortisModelConfig(device.model) : null;
+
     // Use 'private' as default write community for SNMP SET operations
     const community = 'private';
 
-    const result = await setPoEState(device.ip, port, enabled, community);
+    const result = await setPoEState(device.ip, port, enabled, community, modelConfig);
 
     if (result.success) {
       // Log the action
@@ -1823,10 +2167,20 @@ ipcMain.handle('snmp:resetPoE', async (_, switchId, port) => {
       return { success: false, error: 'Device not found' };
     }
 
+    // Получаем конфигурацию модели TFortis
+    const modelConfig = device.vendor === 'tfortis' ? getTFortisModelConfig(device.model) : null;
+
+    logInfo('IPC', `snmp:resetPoE for device ${device.name}`, {
+      model: device.model,
+      modelConfig: modelConfig
+    });
+
     // Use 'private' as default write community for SNMP SET operations
     const community = 'private';
 
-    const result = await resetPoE(device.ip, port, community, 3000);
+    const result = await resetPoE(device.ip, port, community, 3000, modelConfig);
+
+    logInfo('IPC', `snmp:resetPoE result for ${device.name} port ${port}:`, result);
 
     if (result.success) {
       // Log the action

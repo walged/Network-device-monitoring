@@ -15,7 +15,8 @@ import {
   Popover,
   Switch,
   message,
-  Divider
+  Divider,
+  Input
 } from 'antd';
 import {
   ReloadOutlined,
@@ -31,15 +32,24 @@ import {
   ThunderboltOutlined,
   PoweroffOutlined,
   SyncOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
-import { Device } from '@shared/types';
+import { Device, TFORTIS_MODELS, getTFortisModelConfig } from '@shared/types';
 
 interface PoEPortStatus {
   port: number;
-  status: 'on' | 'off' | 'unknown';
+  status: 'on' | 'off' | 'unknown' | 'unsupported';
   power: number;
+}
+
+interface PoEStatusResponse {
+  ip: string;
+  ports: PoEPortStatus[];
+  totalPorts: number;
+  statusSupported?: boolean;
+  message?: string;
 }
 
 interface SwitchWithCameras {
@@ -57,12 +67,111 @@ export const NetworkMap: React.FC = () => {
   // Состояние для модального окна мониторинга камер
   const [monitorModalVisible, setMonitorModalVisible] = useState(false);
   const [monitoringSwitch, setMonitoringSwitch] = useState<SwitchWithCameras | null>(null);
-  const [gridColumns, setGridColumns] = useState<number>(4); // Количество колонок в сетке
+  const [gridColumns, setGridColumns] = useState<number>(3); // Количество колонок в сетке (дефолт 3)
+
+  // Поиск
+  const [searchText, setSearchText] = useState('');
+
+  // Снапшоты камер для монитора (deviceId -> base64 image или error)
+  const [cameraSnapshots, setCameraSnapshots] = useState<{ [deviceId: number]: { data?: string; error?: string; loading?: boolean } }>({});
+
+  // Синхронизация monitoringSwitch с актуальными данными switchesWithCameras
+  useEffect(() => {
+    if (monitoringSwitch && switchesWithCameras.length > 0) {
+      const updatedSwitch = switchesWithCameras.find(
+        s => s.switch.id === monitoringSwitch.switch.id
+      );
+      if (updatedSwitch) {
+        // Обновляем только если данные изменились
+        if (JSON.stringify(updatedSwitch.cameras) !== JSON.stringify(monitoringSwitch.cameras)) {
+          setMonitoringSwitch(updatedSwitch);
+        }
+      }
+    }
+  }, [switchesWithCameras]);
 
   // PoE Control State
   const [poeStatus, setPoeStatus] = useState<{ [switchId: number]: PoEPortStatus[] }>({});
+  const [poeStatusSupported, setPoeStatusSupported] = useState<{ [switchId: number]: boolean }>({});
   const [poeLoading, setPoeLoading] = useState<{ [key: string]: boolean }>({});
   const [activePopover, setActivePopover] = useState<string | null>(null);
+
+  // Получить URL для снапшота камеры по вендору
+  const getSnapshotUrlByVendor = (ip: string, vendor: string): string => {
+    const vendorLower = (vendor || '').toLowerCase();
+    switch (vendorLower) {
+      case 'dahua':
+      case 'dh':
+        return `http://${ip}/cgi-bin/snapshot.cgi?channel=1`;
+      case 'hikvision':
+      case 'hik':
+        return `http://${ip}/ISAPI/Streaming/channels/101/picture`;
+      case 'ltv':
+        return `http://${ip}/cgi-bin/snapshot.cgi?channel=1`;
+      case 'trassir':
+        return `http://${ip}/screenshot.php`;
+      case 'wisenet':
+      case 'samsung':
+        return `http://${ip}/stw-cgi/video.cgi?msubmenu=snapshot&action=view&Profile=1`;
+      default:
+        return `http://${ip}/cgi-bin/snapshot.cgi?channel=1`;
+    }
+  };
+
+  // Загрузить снапшот одной камеры
+  const loadCameraSnapshot = async (camera: Device) => {
+    if (!api || !camera.id) return;
+
+    const deviceId = camera.id;
+
+    // Устанавливаем статус загрузки
+    setCameraSnapshots(prev => ({
+      ...prev,
+      [deviceId]: { loading: true }
+    }));
+
+    try {
+      const url = camera.stream_url || getSnapshotUrlByVendor(camera.ip, camera.vendor || '');
+      const login = camera.camera_login || 'admin';
+      const password = camera.camera_password || '';
+
+      console.log(`[Monitor] Loading snapshot for ${camera.name} (${camera.ip})`);
+
+      const result = await api.camera.getSnapshot(url, login, password);
+
+      if (result.success && result.data) {
+        setCameraSnapshots(prev => ({
+          ...prev,
+          [deviceId]: { data: result.data }
+        }));
+      } else {
+        setCameraSnapshots(prev => ({
+          ...prev,
+          [deviceId]: { error: result.error || 'Не удалось загрузить изображение' }
+        }));
+      }
+    } catch (e: any) {
+      console.error(`[Monitor] Error loading snapshot for ${camera.name}:`, e);
+      setCameraSnapshots(prev => ({
+        ...prev,
+        [deviceId]: { error: e.message || 'Ошибка загрузки' }
+      }));
+    }
+  };
+
+  // Загрузить все снапшоты при открытии монитора
+  useEffect(() => {
+    if (monitorModalVisible && monitoringSwitch) {
+      // Загружаем снапшоты для всех онлайн камер
+      const onlineCameras = monitoringSwitch.cameras.filter(c => c.current_status === 'online');
+      onlineCameras.forEach(camera => {
+        loadCameraSnapshot(camera);
+      });
+    } else if (!monitorModalVisible) {
+      // Очищаем снапшоты при закрытии монитора
+      setCameraSnapshots({});
+    }
+  }, [monitorModalVisible, monitoringSwitch]);
 
   useEffect(() => {
     loadNetworkMap();
@@ -150,11 +259,23 @@ export const NetworkMap: React.FC = () => {
       console.log(`[PoE] Response:`, response);
 
       if (response.success) {
+        const data = response.data as PoEStatusResponse;
         setPoeStatus(prev => ({
           ...prev,
-          [switchId]: response.data.ports
+          [switchId]: data.ports
         }));
-        message.success('Статус PoE загружен');
+
+        // Сохраняем информацию о поддержке статуса
+        setPoeStatusSupported(prev => ({
+          ...prev,
+          [switchId]: data.statusSupported !== false
+        }));
+
+        if (data.statusSupported === false) {
+          message.info(data.message || 'Модель не поддерживает чтение статуса PoE');
+        } else {
+          message.success('Статус PoE загружен');
+        }
       } else {
         console.error(`[PoE] Error:`, response.error);
         message.error(`Ошибка SNMP: ${response.error}`);
@@ -333,60 +454,171 @@ export const NetworkMap: React.FC = () => {
         >
           <CloseCircleOutlined style={{ fontSize: 48, marginBottom: 8 }} />
           <div style={{ fontWeight: 500 }}>{camera.name}</div>
-          <div style={{ fontSize: 12 }}>Нет видео или связи</div>
+          <div style={{ fontSize: 12 }}>Нет связи</div>
         </div>
       );
     }
 
-    // Камера онлайн - показываем изображение
-    const streamUrl = getCameraStreamUrl(camera);
+    // Камера онлайн - показываем изображение через IPC
+    const deviceId = camera.id!;
+    const snapshot = cameraSnapshots[deviceId];
 
+    // Состояние загрузки
+    if (snapshot?.loading) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: 200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#000',
+            borderRadius: 8,
+            color: '#fff',
+            flexDirection: 'column',
+            position: 'relative'
+          }}
+        >
+          <Spin indicator={<LoadingOutlined style={{ fontSize: 36 }} spin />} />
+          <div style={{ marginTop: 12, fontSize: 12 }}>Загрузка...</div>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: '4px 8px',
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: '#fff',
+              fontSize: 12
+            }}
+          >
+            <Badge status="processing" /> {camera.name} (Порт {camera.port_number})
+          </div>
+        </div>
+      );
+    }
+
+    // Ошибка загрузки
+    if (snapshot?.error) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: 200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255, 77, 79, 0.1)',
+            borderRadius: 8,
+            color: '#ff4d4f',
+            flexDirection: 'column',
+            border: '1px solid rgba(255, 77, 79, 0.3)',
+            position: 'relative'
+          }}
+        >
+          <CloseCircleOutlined style={{ fontSize: 36, marginBottom: 8 }} />
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>{camera.name}</div>
+          <div style={{ fontSize: 11, textAlign: 'center', padding: '0 8px', maxWidth: '100%', overflow: 'hidden' }}>
+            {snapshot.error.length > 50 ? snapshot.error.substring(0, 50) + '...' : snapshot.error}
+          </div>
+          <Button
+            size="small"
+            type="link"
+            icon={<ReloadOutlined />}
+            onClick={() => loadCameraSnapshot(camera)}
+            style={{ marginTop: 8, color: '#ff4d4f' }}
+          >
+            Повторить
+          </Button>
+        </div>
+      );
+    }
+
+    // Снапшот загружен успешно
+    if (snapshot?.data) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: 200,
+            position: 'relative',
+            borderRadius: 8,
+            overflow: 'hidden',
+            backgroundColor: '#000'
+          }}
+        >
+          <img
+            src={`data:image/jpeg;base64,${snapshot.data}`}
+            alt={camera.name}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain'
+            }}
+          />
+          {/* Кнопка обновления */}
+          <Button
+            size="small"
+            type="text"
+            icon={<ReloadOutlined />}
+            onClick={() => loadCameraSnapshot(camera)}
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              color: '#fff',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              border: 'none'
+            }}
+          />
+          {/* Название камеры */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: '4px 8px',
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: '#fff',
+              fontSize: 12
+            }}
+          >
+            <Badge status="success" /> {camera.name} (Порт {camera.port_number})
+          </div>
+        </div>
+      );
+    }
+
+    // Снапшот еще не загружен - показываем ожидание
     return (
       <div
         style={{
           width: '100%',
           height: 200,
-          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#000',
           borderRadius: 8,
-          overflow: 'hidden',
-          backgroundColor: '#000'
+          color: '#8c8c8c',
+          flexDirection: 'column',
+          position: 'relative'
         }}
       >
-        <img
-          src={streamUrl}
-          alt={camera.name}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-          onError={(e) => {
-            // При ошибке загрузки показываем заглушку
-            (e.target as HTMLImageElement).style.display = 'none';
-            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-          }}
-        />
-        <div
-          className="hidden"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            display: 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(255, 77, 79, 0.1)',
-            color: '#ff4d4f',
-            flexDirection: 'column'
-          }}
+        <VideoCameraOutlined style={{ fontSize: 36, marginBottom: 8 }} />
+        <div style={{ fontSize: 12 }}>Ожидание...</div>
+        <Button
+          size="small"
+          type="link"
+          icon={<ReloadOutlined />}
+          onClick={() => loadCameraSnapshot(camera)}
+          style={{ marginTop: 8 }}
         >
-          <CloseCircleOutlined style={{ fontSize: 48, marginBottom: 8 }} />
-          <div style={{ fontWeight: 500 }}>{camera.name}</div>
-          <div style={{ fontSize: 12 }}>Нет видео или связи</div>
-        </div>
-        {/* Название камеры */}
+          Загрузить
+        </Button>
         <div
           style={{
             position: 'absolute',
@@ -399,7 +631,7 @@ export const NetworkMap: React.FC = () => {
             fontSize: 12
           }}
         >
-          <Badge status="success" /> {camera.name} (Порт {camera.port_number})
+          <Badge status="default" /> {camera.name} (Порт {camera.port_number})
         </div>
       </div>
     );
@@ -410,6 +642,12 @@ export const NetworkMap: React.FC = () => {
     return sw.vendor?.toLowerCase() === 'tfortis';
   };
 
+  // Get TFortis model config for a switch
+  const getTFortisConfig = (sw: Device) => {
+    if (!isTFortisSwitch(sw)) return null;
+    return getTFortisModelConfig(sw.model);
+  };
+
   // PoE Control Popover Content
   const renderPoEPopover = (sw: Device, port: number, camera?: Device) => {
     const switchId = sw.id!;
@@ -418,9 +656,11 @@ export const NetworkMap: React.FC = () => {
     const isResetLoading = poeLoading[`reset-${switchId}-${port}`];
     const isLoadingStatus = poeLoading[`load-${switchId}`];
     const supportsPoe = isTFortisSwitch(sw);
+    const modelConfig = getTFortisConfig(sw);
+    const statusSupported = poeStatusSupported[switchId] !== false;
 
     return (
-      <div style={{ width: 220 }}>
+      <div style={{ width: 250 }}>
         {camera ? (
           <>
             <div style={{ marginBottom: 8 }}>
@@ -443,6 +683,13 @@ export const NetworkMap: React.FC = () => {
           <>
             <Divider style={{ margin: '8px 0' }} />
 
+            {/* Model info */}
+            {sw.model && (
+              <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 8 }}>
+                Модель: <Tag style={{ fontSize: 11 }}>{sw.model}</Tag>
+              </div>
+            )}
+
             {/* PoE Status */}
             <div style={{ marginBottom: 12 }}>
               <ThunderboltOutlined style={{ marginRight: 6, color: '#faad14' }} />
@@ -452,39 +699,70 @@ export const NetworkMap: React.FC = () => {
 
             {poePort ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span>Статус:</span>
-                  <Tag color={poePort.status === 'on' ? 'green' : 'red'}>
-                    {poePort.status === 'on' ? 'Включен' : 'Выключен'}
-                  </Tag>
-                </div>
-                {poePort.power > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <span>Мощность:</span>
-                    <Tag color="blue">{poePort.power} W</Tag>
-                  </div>
-                )}
+                {/* Если модель не поддерживает чтение статуса */}
+                {poePort.status === 'unsupported' || !statusSupported ? (
+                  <>
+                    <div style={{
+                      backgroundColor: 'rgba(250, 173, 20, 0.1)',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      marginBottom: 12,
+                      fontSize: 12,
+                      color: '#d48806'
+                    }}>
+                      <WarningOutlined style={{ marginRight: 6 }} />
+                      Модель не поддерживает чтение статуса PoE.
+                      Доступна только перезагрузка.
+                    </div>
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Button
-                    size="small"
-                    icon={isToggleLoading ? <LoadingOutlined spin /> : <PoweroffOutlined />}
-                    onClick={() => handlePoEToggle(switchId, port, poePort.status === 'on')}
-                    disabled={isToggleLoading || isResetLoading}
-                    danger={poePort.status === 'on'}
-                  >
-                    {poePort.status === 'on' ? 'Выкл' : 'Вкл'}
-                  </Button>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={isResetLoading ? <LoadingOutlined spin /> : <SyncOutlined />}
-                    onClick={() => handlePoEReset(switchId, port, camera?.name)}
-                    disabled={isToggleLoading || isResetLoading}
-                  >
-                    Перезагрузить
-                  </Button>
-                </div>
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={isResetLoading ? <LoadingOutlined spin /> : <SyncOutlined />}
+                      onClick={() => handlePoEReset(switchId, port, camera?.name)}
+                      disabled={isResetLoading}
+                      block
+                    >
+                      Перезагрузить PoE
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span>Статус:</span>
+                      <Tag color={poePort.status === 'on' ? 'green' : 'red'}>
+                        {poePort.status === 'on' ? 'Включен' : 'Выключен'}
+                      </Tag>
+                    </div>
+                    {poePort.power > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <span>Мощность:</span>
+                        <Tag color="blue">{poePort.power} W</Tag>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button
+                        size="small"
+                        icon={isToggleLoading ? <LoadingOutlined spin /> : <PoweroffOutlined />}
+                        onClick={() => handlePoEToggle(switchId, port, poePort.status === 'on')}
+                        disabled={isToggleLoading || isResetLoading}
+                        danger={poePort.status === 'on'}
+                      >
+                        {poePort.status === 'on' ? 'Выкл' : 'Вкл'}
+                      </Button>
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={isResetLoading ? <LoadingOutlined spin /> : <SyncOutlined />}
+                        onClick={() => handlePoEReset(switchId, port, camera?.name)}
+                        disabled={isToggleLoading || isResetLoading}
+                      >
+                        Перезагрузить
+                      </Button>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
@@ -610,8 +888,32 @@ export const NetworkMap: React.FC = () => {
     );
   };
 
+  // Фильтрация данных по поисковому запросу
+  const filteredSwitchesWithCameras = switchesWithCameras.filter(item => {
+    if (!searchText.trim()) return true;
+    const search = searchText.toLowerCase();
+    // Поиск по коммутатору
+    if (item.switch.name.toLowerCase().includes(search)) return true;
+    if (item.switch.ip.toLowerCase().includes(search)) return true;
+    if (item.switch.location?.toLowerCase().includes(search)) return true;
+    // Поиск по камерам
+    return item.cameras.some(cam =>
+      cam.name.toLowerCase().includes(search) ||
+      cam.ip.toLowerCase().includes(search) ||
+      cam.location?.toLowerCase().includes(search)
+    );
+  });
+
+  const filteredUnconnectedCameras = unconnectedCameras.filter(cam => {
+    if (!searchText.trim()) return true;
+    const search = searchText.toLowerCase();
+    return cam.name.toLowerCase().includes(search) ||
+      cam.ip.toLowerCase().includes(search) ||
+      cam.location?.toLowerCase().includes(search);
+  });
+
   const getCollapseItems = () => {
-    return switchesWithCameras.map(item => ({
+    return filteredSwitchesWithCameras.map(item => ({
       key: String(item.switch.id),
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -662,7 +964,15 @@ export const NetworkMap: React.FC = () => {
       <Card
         title="Карта сети"
         extra={
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Input
+              placeholder="Поиск..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              style={{ width: 200 }}
+            />
             <Button
               icon={expandAll ? <CompressOutlined /> : <ExpandOutlined />}
               onClick={() => setExpandAll(!expandAll)}
@@ -681,6 +991,11 @@ export const NetworkMap: React.FC = () => {
               description="Нет устройств для отображения"
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             />
+          ) : filteredSwitchesWithCameras.length === 0 && filteredUnconnectedCameras.length === 0 && searchText.trim() ? (
+            <Empty
+              description={`По запросу "${searchText}" ничего не найдено`}
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
           ) : (
             <>
               {/* Статистика */}
@@ -688,7 +1003,7 @@ export const NetworkMap: React.FC = () => {
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-                      {switchesWithCameras.length}
+                      {filteredSwitchesWithCameras.length}
                     </div>
                     <div style={{ color: '#8c8c8c' }}>Коммутаторов</div>
                   </Card>
@@ -696,7 +1011,7 @@ export const NetworkMap: React.FC = () => {
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
-                      {switchesWithCameras.reduce((acc, item) => acc + item.cameras.length, 0)}
+                      {filteredSwitchesWithCameras.reduce((acc, item) => acc + item.cameras.length, 0)}
                     </div>
                     <div style={{ color: '#8c8c8c' }}>Подключенных камер</div>
                   </Card>
@@ -704,7 +1019,7 @@ export const NetworkMap: React.FC = () => {
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
-                      {unconnectedCameras.length}
+                      {filteredUnconnectedCameras.length}
                     </div>
                     <div style={{ color: '#8c8c8c' }}>Без привязки</div>
                   </Card>
@@ -712,7 +1027,7 @@ export const NetworkMap: React.FC = () => {
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
-                      {switchesWithCameras.reduce((acc, item) => acc + (item.switch.port_count || 0), 0)}
+                      {filteredSwitchesWithCameras.reduce((acc, item) => acc + (item.switch.port_count || 0), 0)}
                     </div>
                     <div style={{ color: '#8c8c8c' }}>Всего портов</div>
                   </Card>
@@ -720,10 +1035,10 @@ export const NetworkMap: React.FC = () => {
               </Row>
 
               {/* Коммутаторы с камерами */}
-              {switchesWithCameras.length > 0 && (
+              {filteredSwitchesWithCameras.length > 0 && (
                 <Collapse
-                  defaultActiveKey={expandAll ? switchesWithCameras.map(item => String(item.switch.id)) : []}
-                  activeKey={expandAll ? switchesWithCameras.map(item => String(item.switch.id)) : undefined}
+                  defaultActiveKey={expandAll ? filteredSwitchesWithCameras.map(item => String(item.switch.id)) : []}
+                  activeKey={expandAll ? filteredSwitchesWithCameras.map(item => String(item.switch.id)) : undefined}
                   onChange={() => setExpandAll(false)}
                   items={getCollapseItems()}
                   style={{ marginBottom: 24 }}
@@ -731,7 +1046,7 @@ export const NetworkMap: React.FC = () => {
               )}
 
               {/* Камеры без привязки */}
-              {unconnectedCameras.length > 0 && (
+              {filteredUnconnectedCameras.length > 0 && (
                 <Card
                   title={
                     <span>
@@ -742,7 +1057,7 @@ export const NetworkMap: React.FC = () => {
                   size="small"
                 >
                   <Row gutter={[16, 16]}>
-                    {unconnectedCameras.map(camera => (
+                    {filteredUnconnectedCameras.map(camera => (
                       <Col key={camera.id} xs={24} sm={12} md={8} lg={6}>
                         <Card
                           size="small"

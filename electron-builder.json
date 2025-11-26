@@ -18,6 +18,14 @@
       "from": "assets",
       "to": "assets",
       "filter": ["**/*"]
+    },
+    {
+      "from": "scc.ico",
+      "to": "scc.ico"
+    },
+    {
+      "from": "scc.png",
+      "to": "scc.png"
     }
   ],
   "win": {
@@ -31,7 +39,7 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "scc.png",
+    "icon": "scc.ico",
     "verifyUpdateCodeSignature": false,
     "signAndEditExecutable": false
   },

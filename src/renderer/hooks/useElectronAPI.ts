@@ -28,6 +28,7 @@ interface ElectronAPI {
     getPoEStatus: (switchId: number) => Promise<any>;
     setPoE: (switchId: number, port: number, enabled: boolean) => Promise<any>;
     resetPoE: (switchId: number, port: number) => Promise<any>;
+    test: (ip: string, community: string) => Promise<any>;
   };
   on: (channel: string, callback: (...args: any[]) => void) => void;
   removeListener: (channel: string, callback: (...args: any[]) => void) => void;
@@ -611,6 +612,10 @@ const createLocalStorageAPI = (): ElectronAPI => {
         await new Promise(resolve => setTimeout(resolve, 3000));
         console.log(`[Mock SNMP] PoE reset completed on switch ${switchId} port ${port}`);
         return { success: true };
+      },
+      test: async (ip: string, community: string) => {
+        console.log(`[Mock SNMP] Test connection to ${ip} with community ${community}`);
+        return { success: true, data: { sysDescr: 'Mock Switch', sysName: 'mock-switch' } };
       },
     },
     on: (channel: string, callback: (...args: any[]) => void) => {

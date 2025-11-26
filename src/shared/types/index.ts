@@ -146,11 +146,157 @@ export interface VendorConfig {
   special_features?: string[];
 }
 
+// TFortis Model Configuration - определяет возможности каждой модели
+export interface TFortisModelConfig {
+  model: string;
+  name: string;
+  ports: number;
+  poeSupport: boolean;
+  snmpGetStatus: boolean;  // Поддержка чтения статуса PoE через SNMP GET
+  snmpSetPoe: boolean;     // Поддержка управления PoE через SNMP SET
+  snmpVersion: '1' | '2c';
+  mibVersion: 'v1.3' | 'v2.3'; // Какой MIB файл использовать
+  description: string;
+}
+
+// OID-ы для разных версий MIB
+export const TFORTIS_OIDS = {
+  // MIB v2.3 (PSW-2G8F+, PSW-2G6F+, etc.) - полная поддержка SNMP
+  v23: {
+    poeControl: '1.3.6.1.4.1.42019.3.2.1.3.1.1.2',   // SET: enabled(1), disabled(2)
+    poeStatus: '1.3.6.1.4.1.42019.3.2.2.5.1.1.2',    // GET: up(1), down(2)
+    poePower: '1.3.6.1.4.1.42019.3.2.2.5.1.1.3',     // GET: power in mW
+  },
+  // MIB v1.3 (PSW-2G, PSW-2G4F) - только SET (OID другой структуры!)
+  v13: {
+    // Порты FE1-FE3 (1-3), GE1-GE2 (4-5)
+    poeControl: {
+      1: '1.3.6.1.4.1.42019.3.2.1.2.0.1.4', // FE1
+      2: '1.3.6.1.4.1.42019.3.2.1.2.0.2.4', // FE2
+      3: '1.3.6.1.4.1.42019.3.2.1.2.0.3.4', // FE3
+      4: '1.3.6.1.4.1.42019.3.2.1.2.0.4.4', // GE1
+      5: '1.3.6.1.4.1.42019.3.2.1.2.0.5.4', // GE2
+    } as Record<number, string>,
+  },
+};
+
+// Все модели TFortis с их возможностями
+export const TFORTIS_MODELS: TFortisModelConfig[] = [
+  // Старые модели (MIB v1.3) - только TRAP + SET, нет GET статуса
+  {
+    model: 'PSW-2G',
+    name: 'PSW-2G',
+    ports: 5,  // 3 FE + 2 GE
+    poeSupport: true,
+    snmpGetStatus: false,
+    snmpSetPoe: true,
+    snmpVersion: '1',
+    mibVersion: 'v1.3',
+    description: 'Базовая модель 5 портов (3 FE PoE + 2 GE)'
+  },
+  {
+    model: 'PSW-2G4F',
+    name: 'PSW-2G4F',
+    ports: 6,  // 4 FE + 2 GE/SFP
+    poeSupport: true,
+    snmpGetStatus: false,
+    snmpSetPoe: true,
+    snmpVersion: '1',
+    mibVersion: 'v1.3',
+    description: '6 портов (4 FE PoE + 2 GE/SFP)'
+  },
+  {
+    model: 'PSW-2G4F-Box',
+    name: 'PSW-2G4F-Box',
+    ports: 6,
+    poeSupport: true,
+    snmpGetStatus: false,
+    snmpSetPoe: true,
+    snmpVersion: '1',
+    mibVersion: 'v1.3',
+    description: '6 портов в уличном исполнении'
+  },
+  // Новые модели (MIB v2.3) - полная поддержка SNMP GET/SET
+  {
+    model: 'PSW-2G+',
+    name: 'PSW-2G+',
+    ports: 6,
+    poeSupport: true,
+    snmpGetStatus: true,
+    snmpSetPoe: true,
+    snmpVersion: '2c',
+    mibVersion: 'v2.3',
+    description: '6 портов с расширенным SNMP'
+  },
+  {
+    model: 'PSW-2G6F+',
+    name: 'PSW-2G6F+',
+    ports: 8,  // 6 FE + 2 GE/SFP
+    poeSupport: true,
+    snmpGetStatus: true,
+    snmpSetPoe: true,
+    snmpVersion: '2c',
+    mibVersion: 'v2.3',
+    description: '8 портов (6 FE PoE + 2 GE/SFP)'
+  },
+  {
+    model: 'PSW-2G8F+',
+    name: 'PSW-2G8F+',
+    ports: 10,  // 8 FE + 2 GE/SFP
+    poeSupport: true,
+    snmpGetStatus: true,
+    snmpSetPoe: true,
+    snmpVersion: '2c',
+    mibVersion: 'v2.3',
+    description: '10 портов (8 FE PoE + 2 GE/SFP)'
+  },
+  {
+    model: 'PSW-2G+UPS',
+    name: 'PSW-2G+UPS',
+    ports: 6,
+    poeSupport: true,
+    snmpGetStatus: true,
+    snmpSetPoe: true,
+    snmpVersion: '2c',
+    mibVersion: 'v2.3',
+    description: '6 портов с UPS модулем'
+  },
+  {
+    model: 'PSW-2G8F+UPS',
+    name: 'PSW-2G8F+UPS',
+    ports: 10,
+    poeSupport: true,
+    snmpGetStatus: true,
+    snmpSetPoe: true,
+    snmpVersion: '2c',
+    mibVersion: 'v2.3',
+    description: '10 портов с UPS модулем'
+  },
+  // Прочие/неизвестные модели
+  {
+    model: 'other',
+    name: 'Другая модель',
+    ports: 8,
+    poeSupport: true,
+    snmpGetStatus: false,  // По умолчанию считаем что нет
+    snmpSetPoe: true,
+    snmpVersion: '2c',
+    mibVersion: 'v2.3',
+    description: 'Другая модель TFortis'
+  },
+];
+
+// Получить конфигурацию модели TFortis
+export function getTFortisModelConfig(model?: string): TFortisModelConfig | undefined {
+  if (!model) return undefined;
+  return TFORTIS_MODELS.find(m => m.model.toLowerCase() === model.toLowerCase());
+}
+
 export const VENDOR_CONFIGS: Record<string, VendorConfig> = {
   tfortis: {
     vendor: 'tfortis',
     default_community: 'public',
-    special_features: ['poe_monitoring', 'temperature_monitoring']
+    special_features: ['poe_monitoring', 'temperature_monitoring', 'poe_control']
   },
   tplink: {
     vendor: 'tplink',

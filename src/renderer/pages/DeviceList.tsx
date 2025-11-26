@@ -28,11 +28,12 @@ import {
   CloseCircleOutlined,
   QuestionCircleOutlined,
   WarningOutlined,
-  GlobalOutlined
+  GlobalOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { useLanguage } from '../i18n';
-import { Device, VENDOR_CONFIGS } from '@shared/types';
+import { Device, VENDOR_CONFIGS, TFORTIS_MODELS, TFortisModelConfig } from '@shared/types';
 
 const { Option } = Select;
 
@@ -54,6 +55,7 @@ export const DeviceList: React.FC = () => {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [testingDevice, setTestingDevice] = useState<number | null>(null);
   const [selectedDeviceType, setSelectedDeviceType] = useState<string>('switch');
+  const [selectedVendor, setSelectedVendor] = useState<string>('generic');
   const [form] = Form.useForm();
 
   // Для привязки камер к коммутаторам
@@ -70,6 +72,9 @@ export const DeviceList: React.FC = () => {
   const [videoTestError, setVideoTestError] = useState<string>('');
   const [videoTestImage, setVideoTestImage] = useState<string>(''); // Base64 image data
   const [videoTestLoading, setVideoTestLoading] = useState(false);
+
+  // Поиск
+  const [searchText, setSearchText] = useState('');
 
   // Динамические списки производителей в зависимости от типа
   const getVendorsByType = (type: string) => {
@@ -455,6 +460,7 @@ export const DeviceList: React.FC = () => {
     if (device) {
       setEditingDevice(device);
       setSelectedDeviceType(device.type || 'switch');
+      setSelectedVendor(device.vendor || 'generic');
       form.setFieldsValue(device);
 
       // Если редактируем камеру с привязкой - загружаем доступные порты
@@ -468,11 +474,39 @@ export const DeviceList: React.FC = () => {
     } else {
       setEditingDevice(null);
       setSelectedDeviceType('switch');
+      setSelectedVendor('generic');
       setSelectedSwitch(null);
       setAvailablePorts([]);
       form.resetFields();
     }
     setModalVisible(true);
+  };
+
+  // Обработчик выбора производителя (vendor)
+  const handleVendorChange = (value: string) => {
+    setSelectedVendor(value);
+    // Если выбран TFortis - сбрасываем модель на первую из списка
+    if (value === 'tfortis') {
+      const firstModel = TFORTIS_MODELS[0];
+      form.setFieldsValue({
+        model: firstModel.model,
+        port_count: firstModel.ports,
+        snmp_version: firstModel.snmpVersion
+      });
+    } else {
+      form.setFieldsValue({ model: undefined });
+    }
+  };
+
+  // Обработчик выбора модели TFortis
+  const handleTFortisModelChange = (modelName: string) => {
+    const modelConfig = TFORTIS_MODELS.find(m => m.model === modelName);
+    if (modelConfig) {
+      form.setFieldsValue({
+        port_count: modelConfig.ports,
+        snmp_version: modelConfig.snmpVersion
+      });
+    }
   };
 
   // Обработчик изменения типа устройства
@@ -675,6 +709,14 @@ export const DeviceList: React.FC = () => {
         title="Управление устройствами"
         extra={
           <Space>
+            <Input
+              placeholder="Поиск..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              style={{ width: 200 }}
+            />
             <Button icon={<ReloadOutlined />} onClick={loadDevices}>
               Обновить
             </Button>
@@ -686,7 +728,15 @@ export const DeviceList: React.FC = () => {
       >
         <Table
           columns={columns}
-          dataSource={devices}
+          dataSource={devices.filter(device => {
+            if (!searchText.trim()) return true;
+            const search = searchText.toLowerCase();
+            return device.name.toLowerCase().includes(search) ||
+              device.ip.toLowerCase().includes(search) ||
+              device.location?.toLowerCase().includes(search) ||
+              device.type.toLowerCase().includes(search) ||
+              device.vendor?.toLowerCase().includes(search);
+          })}
           rowKey="id"
           loading={loading}
           pagination={{
@@ -762,7 +812,7 @@ export const DeviceList: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item name="vendor" label="Производитель">
-                <Select>
+                <Select onChange={handleVendorChange}>
                   {getVendorsByType(selectedDeviceType).map(vendor => (
                     <Option key={vendor.value} value={vendor.value}>
                       {vendor.label}
@@ -775,9 +825,22 @@ export const DeviceList: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="model" label="Модель">
-                <Input placeholder="TL-SG1024D" />
-              </Form.Item>
+              {/* Для TFortis показываем Select с моделями, для остальных - Input */}
+              {selectedVendor === 'tfortis' && (selectedDeviceType === 'switch' || selectedDeviceType === 'router') ? (
+                <Form.Item name="model" label="Модель TFortis">
+                  <Select onChange={handleTFortisModelChange}>
+                    {TFORTIS_MODELS.map(model => (
+                      <Option key={model.model} value={model.model}>
+                        {model.name} - {model.description}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              ) : (
+                <Form.Item name="model" label="Модель">
+                  <Input placeholder="TL-SG1024D" />
+                </Form.Item>
+              )}
             </Col>
             <Col span={12}>
               <Form.Item name="location" label="Расположение">

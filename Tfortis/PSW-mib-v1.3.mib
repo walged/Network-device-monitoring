@@ -1,0 +1,488 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- --------------------------- Revision ----------------------------------------
+-- Date        Version    Author  Chanage Description
+--           
+-- 2013/06/25  1.00		  Alexandr  Create trap definition
+-- 2013/07/10  1.01		  Alexandr  New traps
+-- 2013/07/19  1.02		  Alexandr  Edit traps
+-- 2014/01/20  1.03		  Alexandr  Edit traps, no warnings                                
+--
+-- -------------------------- Revision End -------------------------------------
+
+--------------------------------------------------------------------------------
+        FORT-TELECOM-MIB DEFINITIONS ::= BEGIN
+
+        IMPORTS      
+        	enterprises						   FROM RFC1155-SMI    
+            OBJECT-TYPE                        FROM RFC-1212
+			TRAP-TYPE		                   FROM RFC-1215;
+            
+
+		forttelecom				OBJECT IDENTIFIER ::= { enterprises 42019 }
+		
+        switch					OBJECT IDENTIFIER ::= { forttelecom 3 }
+        psw2g				  	OBJECT IDENTIFIER ::= { switch 2}
+		
+		--------------------
+		--   TRAPS----------
+		--------------------
+		trap				  	OBJECT IDENTIFIER ::= { psw2g 3}
+		
+		--port group
+		portTrap				OBJECT IDENTIFIER ::= { trap 1}
+		
+		linkPortTrap			OBJECT IDENTIFIER ::= { portTrap 1}
+		poePortTrap				OBJECT IDENTIFIER ::= { portTrap 2}
+		
+		fe1PortTrap				OBJECT IDENTIFIER ::= { linkPortTrap 0}
+		stateFe1L				OBJECT IDENTIFIER ::= { fe1PortTrap 1}
+		fe2PortTrap				OBJECT IDENTIFIER ::= { linkPortTrap 1}
+		stateFe2L				OBJECT IDENTIFIER ::= { fe2PortTrap 1}
+		fe3PortTrap				OBJECT IDENTIFIER ::= { linkPortTrap 2}
+		stateFe3L				OBJECT IDENTIFIER ::= { fe3PortTrap 1}
+		ge1PortTrap				OBJECT IDENTIFIER ::= { linkPortTrap 3}
+		stateGe1L				OBJECT IDENTIFIER ::= { ge1PortTrap 1}
+		ge2PortTrap				OBJECT IDENTIFIER ::= { linkPortTrap 4}
+		stateGe2L				OBJECT IDENTIFIER ::= { ge2PortTrap 1}
+
+		fe1PoePortTrap			OBJECT IDENTIFIER ::= { poePortTrap 0}
+		stateFe1P				OBJECT IDENTIFIER ::= { fe1PoePortTrap 1}
+		fe2PoePortTrap			OBJECT IDENTIFIER ::= { poePortTrap 1}
+		stateFe2				OBJECT IDENTIFIER ::= { fe2PoePortTrap 1}
+		fe3PoePortTrap			OBJECT IDENTIFIER ::= { poePortTrap 2}
+		stateFe3P				OBJECT IDENTIFIER ::= { fe3PoePortTrap 1}
+		ge1PoePortTrap			OBJECT IDENTIFIER ::= { poePortTrap 3}
+		stateGe1P				OBJECT IDENTIFIER ::= { ge1PoePortTrap 1}
+		ge2PoePortTrap			OBJECT IDENTIFIER ::= { poePortTrap 4}
+		stateGe2P				OBJECT IDENTIFIER ::= { ge2PoePortTrap 1}
+		
+				
+		--stp group
+		stp						OBJECT IDENTIFIER ::= { trap 2}
+		stp1					OBJECT IDENTIFIER ::= { stp  0}
+		stp2					OBJECT IDENTIFIER ::= { stp1 0}
+		topology_chg			OBJECT IDENTIFIER ::= { stp2 1}
+		
+		--vlan group
+		--for future use
+		--vlan					OBJECT IDENTIFIER ::= { trap 3}
+		
+		--special function group	
+		special_func			OBJECT IDENTIFIER ::= { trap 4}
+		emptyBlock				OBJECT IDENTIFIER ::= { special_func 0}
+		fe1Spec					OBJECT IDENTIFIER ::= { emptyBlock 0}
+		fe2Spec					OBJECT IDENTIFIER ::= { emptyBlock 1}
+		fe3Spec					OBJECT IDENTIFIER ::= { emptyBlock 2}
+		ge1Spec					OBJECT IDENTIFIER ::= { emptyBlock 3}
+		ge2Spec					OBJECT IDENTIFIER ::= { emptyBlock 4}
+		linkFe1Spec				OBJECT IDENTIFIER ::= { fe1Spec	 1}
+		pingFe1Spec				OBJECT IDENTIFIER ::= { fe1Spec	 2}
+		linkFe2Spec				OBJECT IDENTIFIER ::= { fe2Spec	 1}
+		pingFe2Spec				OBJECT IDENTIFIER ::= { fe2Spec	 2}
+		linkFe3Spec				OBJECT IDENTIFIER ::= { fe3Spec	 1}
+		pingFe3Spec				OBJECT IDENTIFIER ::= { fe3Spec	 2}
+		linkGe1Spec				OBJECT IDENTIFIER ::= { ge1Spec	 1}
+		pingGe1Spec				OBJECT IDENTIFIER ::= { ge1Spec	 2}
+		linkGe2Spec				OBJECT IDENTIFIER ::= { ge2Spec	 1}
+		pingGe2Spec				OBJECT IDENTIFIER ::= { ge2Spec	 2}
+		
+		--system group	
+		system					OBJECT IDENTIFIER ::= { trap 5}
+		authentication			OBJECT IDENTIFIER ::= { system 1}
+		authSpase				OBJECT IDENTIFIER ::= { authentication 0}
+		statusAuth				OBJECT IDENTIFIER ::= { authSpase 1}
+		
+		reboot					OBJECT IDENTIFIER ::= { system 2}
+		rebootSpase				OBJECT IDENTIFIER ::= { reboot 0}
+		statusReboot			OBJECT IDENTIFIER ::= { rebootSpase 1}
+		
+		update					OBJECT IDENTIFIER ::= { system 3}
+		updateSp				OBJECT IDENTIFIER ::= { update 0}
+		statusUpdate			OBJECT IDENTIFIER ::= { updateSp 1}
+		
+		default					OBJECT IDENTIFIER ::= { system 4}
+		defaultSpase			OBJECT IDENTIFIER ::= { default 0}
+		statusDef				OBJECT IDENTIFIER ::= { defaultSpase 1}
+		
+		backup					OBJECT IDENTIFIER ::= { system 5}
+		backSp					OBJECT IDENTIFIER ::= { backup 0}
+		statusBackup			OBJECT IDENTIFIER ::= { backSp 1}
+		
+		arp_clear				OBJECT IDENTIFIER ::= { system 6}
+		arpSp					OBJECT IDENTIFIER ::= { arp_clear 0}
+		statusArpClr			OBJECT IDENTIFIER ::= { arpSp 1}
+		
+		cold_start				OBJECT IDENTIFIER ::= { system 7}
+		csSp					OBJECT IDENTIFIER ::= { cold_start 0}
+		statusColdStart			OBJECT IDENTIFIER ::= { csSp 1}
+		
+		--ups group		
+		ups						OBJECT IDENTIFIER ::= { trap 6}
+		upsSp1					OBJECT IDENTIFIER ::= { ups 0}
+		upsSp2					OBJECT IDENTIFIER ::= { upsSp1 0}
+		low_voltage				OBJECT IDENTIFIER ::= { upsSp2 1}
+		batt_voltage			OBJECT IDENTIFIER ::= { upsSp2 2}
+		power_src				OBJECT IDENTIFIER ::= { upsSp2 3}
+		
+		--asc group (SKUD)
+		access_control			OBJECT IDENTIFIER ::= { trap 7 }
+		acSp1					OBJECT IDENTIFIER ::= { access_control 0 }
+		acSp2					OBJECT IDENTIFIER ::= { acSp1 0 }
+		alarm					OBJECT IDENTIFIER ::= { acSp2 1 }
+     
+	 -------------------------------------
+	 --   TRAPS:  SET group --------------------
+	 -------------------------------------
+	 
+		set				  	OBJECT IDENTIFIER ::= { psw2g 1}
+		
+		--base settings group
+		base_sett		  	OBJECT IDENTIFIER ::= { set 1}
+		
+		dev_descr		  	OBJECT IDENTIFIER ::= { base_sett 1}
+		ddSP		  		OBJECT IDENTIFIER ::= { dev_descr 0}
+		nameDescr  			OBJECT IDENTIFIER ::= { ddSP 1}
+		locationDescr		OBJECT IDENTIFIER ::= { ddSP 2}
+		companyDescr		OBJECT IDENTIFIER ::= { ddSP 3}
+		
+		netw_sett		  	OBJECT IDENTIFIER ::= { base_sett 2}
+		nsSp	  			OBJECT IDENTIFIER ::= { netw_sett 0}
+		macNetSett		  	OBJECT IDENTIFIER ::= { nsSp 1}
+		ipNetSett		  	OBJECT IDENTIFIER ::= { nsSp 2}
+		maskNetSett		  	OBJECT IDENTIFIER ::= { nsSp 3}
+		gateNetSett		  	OBJECT IDENTIFIER ::= { nsSp 4}
+		dhcp_clientNetSett	OBJECT IDENTIFIER ::= { nsSp 5}
+		dhcp_relayNetSett	OBJECT IDENTIFIER ::= { nsSp 6}
+		dhcp_serv_ipNetSett OBJECT IDENTIFIER ::= { nsSp 7}
+		hops_limitNetSett	OBJECT IDENTIFIER ::= { nsSp 8}
+		opt82NetSett		OBJECT IDENTIFIER ::= { nsSp 9}
+		
+		administration	  	OBJECT IDENTIFIER ::= { base_sett 3}
+		adminSp				OBJECT IDENTIFIER ::= { administration 0}
+		login			  	OBJECT IDENTIFIER ::= { adminSp 1}		
+		passwd			  	OBJECT IDENTIFIER ::= { adminSp 2}	
+		
+		syslog			  	OBJECT IDENTIFIER ::= { base_sett 4}
+		syslogSp			OBJECT IDENTIFIER ::= { syslog 0}
+		stateSyslog		  	OBJECT IDENTIFIER ::= { syslogSp 1}
+		serverSyslog	  	OBJECT IDENTIFIER ::= { syslogSp 2}
+	 
+	 
+		sntp			  	OBJECT IDENTIFIER ::= { base_sett 5}
+		sntpSp			  	OBJECT IDENTIFIER ::= { sntp 0}
+		stateSntp			OBJECT IDENTIFIER ::= { sntpSp 1}
+		serverSntp			OBJECT IDENTIFIER ::= { sntpSp 2}
+		time_zoneSntp		OBJECT IDENTIFIER ::= { sntpSp 3}
+		periodSntp			OBJECT IDENTIFIER ::= { sntpSp 4}
+		
+		smtp			  	OBJECT IDENTIFIER ::= { base_sett 6}
+		nul				  	OBJECT IDENTIFIER ::= { smtp 0}
+		state			  	OBJECT IDENTIFIER ::= { nul 1}
+		server			  	OBJECT IDENTIFIER ::= { nul 2}
+		sender1			  	OBJECT IDENTIFIER ::= { nul 3}
+		reciever		  	OBJECT IDENTIFIER ::= { nul 4}
+		syslog2email	  	OBJECT IDENTIFIER ::= { nul 5}
+		sender2			  	OBJECT IDENTIFIER ::= { nul 6}
+		sender3			  	OBJECT IDENTIFIER ::= { nul 7}
+		subject			  	OBJECT IDENTIFIER ::= { nul 8}
+		
+		snmp			  	OBJECT IDENTIFIER ::= { base_sett 7}
+		snmpSp				OBJECT IDENTIFIER ::= { snmp 0}
+		stateSnmp		  	OBJECT IDENTIFIER ::= { snmpSp 1}
+		serverSnmp		  	OBJECT IDENTIFIER ::= { snmpSp 2}
+		communitySnmp	  	OBJECT IDENTIFIER ::= { snmpSp 3}
+		
+		--port settings
+		port_sett		  	OBJECT IDENTIFIER ::= { set 2}
+		psSp			  	OBJECT IDENTIFIER ::= { port_sett 0}
+		
+		fe1PS				OBJECT IDENTIFIER ::= { psSp 1}
+		stateFe1PS			OBJECT IDENTIFIER ::= { fe1PS 1}
+		speed_duplexFe1PS	OBJECT IDENTIFIER ::= { fe1PS 2}
+		flowFe1PS			OBJECT IDENTIFIER ::= { fe1PS 3}
+		poeFe1PS			OBJECT IDENTIFIER ::= { fe1PS 4}
+		
+		fe2PS			  	OBJECT IDENTIFIER ::= { psSp 2}
+		stateFe2PS			OBJECT IDENTIFIER ::= { fe2PS 1}
+		speed_duplexFe2PS	OBJECT IDENTIFIER ::= { fe2PS 2}
+		flowFe2PS			OBJECT IDENTIFIER ::= { fe2PS 3}
+		poeFe2PS			OBJECT IDENTIFIER ::= { fe2PS 4}
+		
+		fe3PS			  	OBJECT IDENTIFIER ::= { psSp 3}
+		stateFe3PS			OBJECT IDENTIFIER ::= { fe3PS 1}
+		speed_duplexFe3PS	OBJECT IDENTIFIER ::= { fe3PS 2}
+		flowFe3PS			OBJECT IDENTIFIER ::= { fe3PS 3}
+		poeFe3PS			OBJECT IDENTIFIER ::= { fe3PS 4}
+		
+		ge1PS			  	OBJECT IDENTIFIER ::= { psSp 4}
+		stateGe1PS			OBJECT IDENTIFIER ::= { ge1PS 1}
+		speed_duplexGe1PS	OBJECT IDENTIFIER ::= { ge1PS 2}
+		flowGe1PS			OBJECT IDENTIFIER ::= { ge1PS 3}
+		poeGe1PS			OBJECT IDENTIFIER ::= { ge1PS 4}
+		
+		ge2PS				OBJECT IDENTIFIER ::= { psSp 5}
+		stateGe2PS			OBJECT IDENTIFIER ::= { ge2PS 1}
+		speed_duplexGe2PS	OBJECT IDENTIFIER ::= { ge2PS 2}
+		flowGe2PS			OBJECT IDENTIFIER ::= { ge2PS 3}
+		poeGe2PS			OBJECT IDENTIFIER ::= { ge2PS 4}
+		
+		
+		
+		--vlan setings
+		vlan_sett		  	OBJECT IDENTIFIER ::= { set 3}
+		port_base		  	OBJECT IDENTIFIER ::= { vlan_sett 1}
+		pbSp			  	OBJECT IDENTIFIER ::= { port_base 0}
+		statePbVlan		  	OBJECT IDENTIFIER ::= { pbSp 1 }
+
+		vlan802_1q		  	OBJECT IDENTIFIER ::= { vlan_sett 2}
+		vlSp		  		OBJECT IDENTIFIER ::= { vlan802_1q 0}
+		add_new_vlan  		OBJECT IDENTIFIER ::= { vlSp 5}
+		delete_vlan  		OBJECT IDENTIFIER ::= { vlSp 6}
+		
+		
+		--qos setings
+		qos			  		OBJECT IDENTIFIER ::= { set 4}
+		generalQos	  		OBJECT IDENTIFIER ::= { qos 1}
+		qosSp		  		OBJECT IDENTIFIER ::= { generalQos 0}
+		qosSp2		  		OBJECT IDENTIFIER ::= { qosSp 1}
+		shedulingQos  		OBJECT IDENTIFIER ::= { qosSp2 2}
+		
+		fe1Qos		  		OBJECT IDENTIFIER ::= { generalQos 1}
+		fe1Prior_mode	  	OBJECT IDENTIFIER ::= { fe1Qos 1}
+		fe1Defaut_prior  	OBJECT IDENTIFIER ::= { fe1Qos 2}
+		
+		fe2Qos			  	OBJECT IDENTIFIER ::= { generalQos 2}
+		prior_mode	  		OBJECT IDENTIFIER ::= { fe2Qos 3}
+		defaut_prior  		OBJECT IDENTIFIER ::= { fe2Qos 4}
+		
+		fe3Qos				OBJECT IDENTIFIER ::= { generalQos 3}
+		fe3Prior_mode	  	OBJECT IDENTIFIER ::= { fe3Qos 3}
+		fe3Defaut_prior  	OBJECT IDENTIFIER ::= { fe3Qos 4}
+		
+		ge1Qos				OBJECT IDENTIFIER ::= { generalQos 4}
+		ge1Prior_mode	  	OBJECT IDENTIFIER ::= { ge1Qos 3}
+		ge1Defaut_prior  	OBJECT IDENTIFIER ::= { ge1Qos 4}
+		
+		ge2Qos				OBJECT IDENTIFIER ::= { generalQos 5}
+		ge2Prior_mode	  	OBJECT IDENTIFIER ::= { ge2Qos 3}
+		ge2Defaut_prior  	OBJECT IDENTIFIER ::= { ge2Qos 4}
+		
+		cos		  			OBJECT IDENTIFIER ::= { qos 2}
+		cosSp			  	OBJECT IDENTIFIER ::= { cos 0}
+		priority0Cos	  	OBJECT IDENTIFIER ::= { cosSp 1}
+		priority1Cos	  	OBJECT IDENTIFIER ::= { cosSp 2}
+		priority2Cos	  	OBJECT IDENTIFIER ::= { cosSp 3}
+		priority3Cos	  	OBJECT IDENTIFIER ::= { cosSp 4}
+		priority4Cos	  	OBJECT IDENTIFIER ::= { cosSp 5}
+		priority5Cos	  	OBJECT IDENTIFIER ::= { cosSp 6}
+		priority6Cos	  	OBJECT IDENTIFIER ::= { cosSp 7}
+		priority7Cos	  	OBJECT IDENTIFIER ::= { cosSp 8}
+
+		tos		  			OBJECT IDENTIFIER ::= { qos 3}
+		tosSp			  	OBJECT IDENTIFIER ::= { tos 0}
+		priority0Tos	  	OBJECT IDENTIFIER ::= { tosSp 1}
+		priority1Tos	  	OBJECT IDENTIFIER ::= { tosSp 2}
+		priority2Tos	  	OBJECT IDENTIFIER ::= { tosSp 3}
+		priority3Tos	  	OBJECT IDENTIFIER ::= { tosSp 4}
+		priority4Tos	  	OBJECT IDENTIFIER ::= { tosSp 5}
+		priority5Tos	  	OBJECT IDENTIFIER ::= { tosSp 6}
+		priority6Tos	  	OBJECT IDENTIFIER ::= { tosSp 7}
+		priority7Tos	  	OBJECT IDENTIFIER ::= { tosSp 8}
+		priority8Tos	  	OBJECT IDENTIFIER ::= { tosSp 9}
+		priority9Tos	  	OBJECT IDENTIFIER ::= { tosSp 10}
+		priority10Tos	  	OBJECT IDENTIFIER ::= { tosSp 11}
+		priority11Tos	  	OBJECT IDENTIFIER ::= { tosSp 12}
+		priority12Tos	  	OBJECT IDENTIFIER ::= { tosSp 13}
+		priority13Tos  		OBJECT IDENTIFIER ::= { tosSp 14}
+		priority14Tos	  	OBJECT IDENTIFIER ::= { tosSp 15}
+		priority15Tos	  	OBJECT IDENTIFIER ::= { tosSp 16}
+		priority16Tos	  	OBJECT IDENTIFIER ::= { tosSp 17}
+		priority17Tos	  	OBJECT IDENTIFIER ::= { tosSp 18}
+		priority18Tos	  	OBJECT IDENTIFIER ::= { tosSp 19}
+		priority19Tos	  	OBJECT IDENTIFIER ::= { tosSp 20}
+		priority20Tos	  	OBJECT IDENTIFIER ::= { tosSp 21}
+		priority21Tos	  	OBJECT IDENTIFIER ::= { tosSp 22}
+		priority22Tos	  	OBJECT IDENTIFIER ::= { tosSp 23}
+		priority23Tos	  	OBJECT IDENTIFIER ::= { tosSp 24}
+		priority24Tos	  	OBJECT IDENTIFIER ::= { tosSp 25}
+		priority25Tos	  	OBJECT IDENTIFIER ::= { tosSp 26}
+		priority26Tos	  	OBJECT IDENTIFIER ::= { tosSp 27}
+		priority27Tos	  	OBJECT IDENTIFIER ::= { tosSp 28}
+		priority28Tos	  	OBJECT IDENTIFIER ::= { tosSp 29}
+		priority29Tos	  	OBJECT IDENTIFIER ::= { tosSp 30}
+		priority30Tos	  	OBJECT IDENTIFIER ::= { tosSp 31}
+		priority31Tos	  	OBJECT IDENTIFIER ::= { tosSp 32}
+		priority32Tos	  	OBJECT IDENTIFIER ::= { tosSp 33}
+		priority33Tos	  	OBJECT IDENTIFIER ::= { tosSp 34}
+		priority34Tos	  	OBJECT IDENTIFIER ::= { tosSp 35}
+		priority35Tos	  	OBJECT IDENTIFIER ::= { tosSp 36}
+		priority36Tos	  	OBJECT IDENTIFIER ::= { tosSp 37}
+		priority37Tos	  	OBJECT IDENTIFIER ::= { tosSp 38}
+		priority38Tos	  	OBJECT IDENTIFIER ::= { tosSp 39}
+		priority39Tos	  	OBJECT IDENTIFIER ::= { tosSp 40}
+		priority40Tos	  	OBJECT IDENTIFIER ::= { tosSp 41}
+		priority41Tos	  	OBJECT IDENTIFIER ::= { tosSp 42}
+		priority42Tos	  	OBJECT IDENTIFIER ::= { tosSp 43}
+		priority43Tos	  	OBJECT IDENTIFIER ::= { tosSp 44}
+		priority44Tos	  	OBJECT IDENTIFIER ::= { tosSp 45}
+		priority45Tos	  	OBJECT IDENTIFIER ::= { tosSp 46}
+		priority46Tos	  	OBJECT IDENTIFIER ::= { tosSp 47}
+		priority47Tos	  	OBJECT IDENTIFIER ::= { tosSp 48}
+		priority48Tos  		OBJECT IDENTIFIER ::= { tosSp 49}
+		priority49Tos	  	OBJECT IDENTIFIER ::= { tosSp 50}
+		priority50Tos	  	OBJECT IDENTIFIER ::= { tosSp 51}
+		priority51Tos	  	OBJECT IDENTIFIER ::= { tosSp 52}
+		priority52Tos	  	OBJECT IDENTIFIER ::= { tosSp 53}
+		priority53Tos	  	OBJECT IDENTIFIER ::= { tosSp 54}
+		priority54Tos	  	OBJECT IDENTIFIER ::= { tosSp 55}
+		priority55Tos	  	OBJECT IDENTIFIER ::= { tosSp 56}
+		priority56Tos	  	OBJECT IDENTIFIER ::= { tosSp 57}
+		priority57Tos	  	OBJECT IDENTIFIER ::= { tosSp 58}
+		priority58Tos	  	OBJECT IDENTIFIER ::= { tosSp 59}
+		priority59Tos	  	OBJECT IDENTIFIER ::= { tosSp 60}
+		priority60Tos	  	OBJECT IDENTIFIER ::= { tosSp 61}
+		priority61Tos	  	OBJECT IDENTIFIER ::= { tosSp 62}
+		priority62Tos	  	OBJECT IDENTIFIER ::= { tosSp 63}
+		priority63Tos	  	OBJECT IDENTIFIER ::= { tosSp 64}
+		
+		rate_limit 			OBJECT IDENTIFIER ::= { qos 4}
+		
+		fe1Lim			  	OBJECT IDENTIFIER ::= { rate_limit 1}
+		fe1Rx_limit	  		OBJECT IDENTIFIER ::= { fe1Lim 1}
+		fe1Tx_limit	  		OBJECT IDENTIFIER ::= { fe1Lim 2}
+
+		fe2Lim			  	OBJECT IDENTIFIER ::= { rate_limit 2}
+		fe2Rx_limit	  		OBJECT IDENTIFIER ::= { fe2Lim 1}
+		fe2Tx_limit	  		OBJECT IDENTIFIER ::= { fe2Lim 2}
+		
+		fe3Lim			  	OBJECT IDENTIFIER ::= { rate_limit 3}
+		fe3Rx_limit	  		OBJECT IDENTIFIER ::= { fe3Lim 1}
+		fe3Tx_limit	  		OBJECT IDENTIFIER ::= { fe3Lim 2}
+		
+		ge1Lim			  	OBJECT IDENTIFIER ::= { rate_limit 4}
+		ge1Rx_limit	  		OBJECT IDENTIFIER ::= { ge1Lim 1}
+		ge1Tx_limit	  		OBJECT IDENTIFIER ::= { ge1Lim 2}
+		
+		ge2Lim			  	OBJECT IDENTIFIER ::= { rate_limit 5}
+		ge2Rx_limit	  		OBJECT IDENTIFIER ::= { ge2Lim 1}
+		ge2Tx_limit	  		OBJECT IDENTIFIER ::= { ge2Lim 2}
+		
+		--stp setings
+		stpSett			  	OBJECT IDENTIFIER ::= { set 5}
+		stpSp1		  		OBJECT IDENTIFIER ::= { stpSett 0}
+		
+		stpSp2		  		OBJECT IDENTIFIER ::= { stpSp1 0}
+		stp_state			OBJECT IDENTIFIER ::= { stpSp2 1}
+		tx_hold_cnt			OBJECT IDENTIFIER ::= { stpSp2 2}
+		bridge_prior		OBJECT IDENTIFIER ::= { stpSp2 3}
+		bridge_max_age		OBJECT IDENTIFIER ::= { stpSp2 4}		
+		bridge_hello_time	OBJECT IDENTIFIER ::= { stpSp2 5}
+		forw_delay_time		OBJECT IDENTIFIER ::= { stpSp2 6}	
+		
+		fe1Stp				OBJECT IDENTIFIER ::= { stpSp1 1}	
+		fe1State			OBJECT IDENTIFIER ::= { fe1Stp 1}
+		fe1Priority			OBJECT IDENTIFIER ::= { fe1Stp 2}
+		fe1Cost				OBJECT IDENTIFIER ::= { fe1Stp 3}
+		fe1Autocost			OBJECT IDENTIFIER ::= { fe1Stp 4}
+		fe1Edge				OBJECT IDENTIFIER ::= { fe1Stp 5}
+		fe1P2p				OBJECT IDENTIFIER ::= { fe1Stp 6}
+		
+		fe2Stp				OBJECT IDENTIFIER ::= { stpSp1 2}	
+		fe2State			OBJECT IDENTIFIER ::= { fe2Stp 1}
+		fe2Priority			OBJECT IDENTIFIER ::= { fe2Stp 2}
+		fe2Cost				OBJECT IDENTIFIER ::= { fe2Stp 3}
+		fe2Autocost			OBJECT IDENTIFIER ::= { fe2Stp 4}
+		fe2Edge				OBJECT IDENTIFIER ::= { fe2Stp 5}
+		fe2p2p				OBJECT IDENTIFIER ::= { fe2Stp 6}
+		
+		fe3Stp				OBJECT IDENTIFIER ::= { stpSp1 3}	
+		fe3State			OBJECT IDENTIFIER ::= { fe3Stp 1}
+		fe3Priority			OBJECT IDENTIFIER ::= { fe3Stp 2}
+		fe3Cost				OBJECT IDENTIFIER ::= { fe3Stp 3}
+		fe3Autocost			OBJECT IDENTIFIER ::= { fe3Stp 4}
+		fe3Edge				OBJECT IDENTIFIER ::= { fe3Stp 5}
+		fe3P2p				OBJECT IDENTIFIER ::= { fe3Stp 6}
+		
+		ge1Stp				OBJECT IDENTIFIER ::= { stpSp1 4}	
+		ge1State			OBJECT IDENTIFIER ::= { ge1Stp 1}
+		ge1Priority			OBJECT IDENTIFIER ::= { ge1Stp 2}
+		ge1Cost				OBJECT IDENTIFIER ::= { ge1Stp 3}
+		ge1Autocost			OBJECT IDENTIFIER ::= { ge1Stp 4}
+		ge1Edge				OBJECT IDENTIFIER ::= { ge1Stp 5}
+		ge1P2p				OBJECT IDENTIFIER ::= { ge1Stp 6}
+		
+		ge2Stp				OBJECT IDENTIFIER ::= { stpSp1 5}	
+		ge2State			OBJECT IDENTIFIER ::= { ge2Stp 1}
+		ge2Priority			OBJECT IDENTIFIER ::= { ge2Stp 2}
+		ge2Cost				OBJECT IDENTIFIER ::= { ge2Stp 3}
+		ge2Autocost			OBJECT IDENTIFIER ::= { ge2Stp 4}
+		ge2Edge				OBJECT IDENTIFIER ::= { ge2Stp 5}
+		ge2P2p				OBJECT IDENTIFIER ::= { ge2Stp 6}
+		
+	    --special function setings
+		special_function	OBJECT IDENTIFIER ::= { set 6}
+		comfort_start   	OBJECT IDENTIFIER ::= { special_function 1}
+		
+		fe1CS			   	OBJECT IDENTIFIER ::= { comfort_start 1}
+		fe1CSstate			OBJECT IDENTIFIER ::= { fe1CS 1}
+		
+		fe2CS				OBJECT IDENTIFIER ::= { comfort_start 2}
+		fe2CSstate			OBJECT IDENTIFIER ::= { fe2CS 1}
+		
+		fe3CS			   	OBJECT IDENTIFIER ::= { comfort_start 3}
+		fe3CSstate			OBJECT IDENTIFIER ::= { fe3CS 1}
+		
+		
+		auto_restart   	    OBJECT IDENTIFIER ::= { special_function 2}
+		
+		fe1AR				OBJECT IDENTIFIER ::= { auto_restart 1}
+		fe1ArMode				OBJECT IDENTIFIER ::= { fe1AR 1}
+		fe1ArIp				OBJECT IDENTIFIER ::= { fe1AR 2}
+		
+		fe2AR				OBJECT IDENTIFIER ::= { auto_restart 2}
+		fe2ArMode			OBJECT IDENTIFIER ::= { fe2AR 1}
+		fe2ArIp				OBJECT IDENTIFIER ::= { fe2AR 2}
+		
+		fe3AR				OBJECT IDENTIFIER ::= { auto_restart 3}
+		fe3ArMode			OBJECT IDENTIFIER ::= { fe3AR 1}
+		fe3ArIp				OBJECT IDENTIFIER ::= { fe3AR 2}
+		
+		
+		--diagnostic tools
+		diagnostic_tools	OBJECT IDENTIFIER ::= { set 7}
+		vct					OBJECT IDENTIFIER ::= { diagnostic_tools 1}
+		
+		fe1Vct				OBJECT IDENTIFIER ::= { vct 1}
+		fe1Length			OBJECT IDENTIFIER ::= { fe1Vct 1}
+		fe1Coeff			OBJECT IDENTIFIER ::= { fe1Vct 2}
+		
+		fe2Vct				OBJECT IDENTIFIER ::= { vct 2}
+		fe2Length			OBJECT IDENTIFIER ::= { fe2Vct 1}
+		fe2Coeff			OBJECT IDENTIFIER ::= { fe2Vct 2}
+		
+		fe3Vct				OBJECT IDENTIFIER ::= { vct 3}
+		fe3Length			OBJECT IDENTIFIER ::= { fe3Vct 1}
+		fe3Coeff			OBJECT IDENTIFIER ::= { fe3Vct 2}
+		
+		-- *****************************************************************
+		--
+		--  Enterprise Trap group 
+		--
+		-- *****************************************************************
+--
+--		
+--		swFiberInsert TRAP-TYPE
+--			ENTERPRISE port
+--			VARIABLES   { sysUpTime, whyReload }
+--		    DESCRIPTION "Fiber insert trap."
+--			::= 1
+--
+--		swFiberRemove TRAP-TYPE
+--			ENTERPRISE vlan
+--			VARIABLES   { sysUpTime, whyReload }
+--		    DESCRIPTION "Fiber remove trap."
+--			::= 1
+--
+
+       END

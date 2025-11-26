@@ -807,3 +807,74 @@ body.dark-theme .ant-modal .ant-select-selector {
   background-color: #303030 !important;
   color: #e8e8e8 !important;
 }
+
+/* List Item Meta - Title and Description */
+body.dark-theme .ant-list-item-meta-title {
+  color: #e8e8e8 !important;
+}
+
+body.dark-theme .ant-list-item-meta-title > a {
+  color: #e8e8e8 !important;
+}
+
+body.dark-theme .ant-list-item-meta-title > a:hover {
+  color: #1890ff !important;
+}
+
+body.dark-theme .ant-list-item-meta-description {
+  color: #8c8c8c !important;
+}
+
+body.dark-theme .ant-list-item-meta-content {
+  color: #e8e8e8 !important;
+}
+
+/* List */
+body.dark-theme .ant-list {
+  color: #e8e8e8 !important;
+}
+
+body.dark-theme .ant-list-item {
+  color: #e8e8e8 !important;
+  border-bottom-color: #303030 !important;
+}
+
+body.dark-theme .ant-list-item-action > li {
+  color: #8c8c8c !important;
+}
+
+body.dark-theme .ant-list-empty-text {
+  color: #8c8c8c !important;
+}
+
+/* Collapse */
+body.dark-theme .ant-collapse {
+  background: #262626 !important;
+  border-color: #303030 !important;
+}
+
+body.dark-theme .ant-collapse-header {
+  color: #e8e8e8 !important;
+  background: #1f1f1f !important;
+}
+
+body.dark-theme .ant-collapse-content {
+  background: #262626 !important;
+  border-top-color: #303030 !important;
+}
+
+body.dark-theme .ant-collapse-content-box {
+  color: #e8e8e8 !important;
+}
+
+body.dark-theme .ant-collapse-item {
+  border-bottom-color: #303030 !important;
+}
+
+body.dark-theme .ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  color: #e8e8e8 !important;
+}
+
+body.dark-theme .ant-collapse-expand-icon {
+  color: #8c8c8c !important;
+}

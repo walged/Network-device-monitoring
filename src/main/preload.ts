@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // События
   on: (channel: string, callback: (...args: any[]) => void) => {
-    const validChannels = ['device-status-changed', 'alert', 'monitoring-data', 'device-added'];
+    const validChannels = ['device-status-changed', 'alert', 'monitoring-data', 'device-added', 'play-sound'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_, ...args) => callback(...args));
     }
@@ -47,5 +47,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('system:notification', title, body),
     exportData: (format: string) => ipcRenderer.invoke('system:export', format),
     importData: (data: any) => ipcRenderer.invoke('system:import', data),
+    playSound: () => ipcRenderer.invoke('system:playSound'),
+  },
+
+  // Камеры
+  camera: {
+    getSnapshot: (url: string, username: string, password: string) =>
+      ipcRenderer.invoke('camera:getSnapshot', url, username, password),
   }
 });

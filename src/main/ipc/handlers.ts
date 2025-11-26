@@ -4,6 +4,8 @@ import { MonitoringService } from '../monitoring/MonitoringService';
 import { Device, IPCResponse } from '@shared/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as http from 'http';
+import * as crypto from 'crypto';
 
 export class IPCHandlers {
   constructor(
@@ -246,8 +248,142 @@ export class IPCHandlers {
       }
     });
 
+    ipcMain.handle('system:playSound', async () => {
+      try {
+        // Воспроизведение звука уведомления
+        const soundPath = path.join(__dirname, '../../assets/notification.mp3');
+        const { shell } = require('electron');
+        // На Windows используем shell для воспроизведения
+        // Или можем отправить событие в renderer для воспроизведения через Audio API
+        const windows = require('electron').BrowserWindow.getAllWindows();
+        windows.forEach((window: any) => {
+          window.webContents.send('play-sound');
+        });
+        return { success: true } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
     // Подписка на события мониторинга
     this.setupMonitoringEvents();
+
+    // Камеры
+    ipcMain.handle('camera:getSnapshot', async (_, url: string, username: string, password: string) => {
+      try {
+        console.log(`[Camera] Getting snapshot from ${url}`);
+        const imageData = await this.fetchCameraSnapshot(url, username, password);
+        return { success: true, data: imageData } as IPCResponse;
+      } catch (error: any) {
+        console.error(`[Camera] Error getting snapshot: ${error.message}`);
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+  }
+
+  // Получение снапшота камеры с поддержкой Digest Auth
+  private async fetchCameraSnapshot(url: string, username: string, password: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const parsedUrl = new URL(url);
+      const options: http.RequestOptions = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || 80,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'GET',
+        timeout: 10000,
+      };
+
+      const makeRequest = (authHeader?: string) => {
+        if (authHeader) {
+          options.headers = { Authorization: authHeader };
+        }
+
+        const req = http.request(options, (res) => {
+          // Если требуется авторизация
+          if (res.statusCode === 401 && !authHeader) {
+            const wwwAuth = res.headers['www-authenticate'];
+            if (wwwAuth && wwwAuth.toLowerCase().includes('digest')) {
+              // Digest Auth
+              const digestAuth = this.createDigestAuth(wwwAuth, username, password, 'GET', options.path as string);
+              makeRequest(digestAuth);
+              return;
+            } else if (wwwAuth && wwwAuth.toLowerCase().includes('basic')) {
+              // Basic Auth
+              const basicAuth = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+              makeRequest(basicAuth);
+              return;
+            }
+          }
+
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+            return;
+          }
+
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            const base64 = buffer.toString('base64');
+            resolve(base64);
+          });
+        });
+
+        req.on('error', (error) => reject(error));
+        req.on('timeout', () => {
+          req.destroy();
+          reject(new Error('Request timeout'));
+        });
+        req.end();
+      };
+
+      // Сначала пробуем без авторизации (вдруг камера открытая)
+      // Но если есть логин/пароль - сразу используем Basic Auth
+      if (username && password) {
+        const basicAuth = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+        makeRequest(basicAuth);
+      } else {
+        makeRequest();
+      }
+    });
+  }
+
+  // Создание Digest Auth заголовка
+  private createDigestAuth(wwwAuth: string, username: string, password: string, method: string, uri: string): string {
+    const params: { [key: string]: string } = {};
+    const regex = /(\w+)="?([^",]+)"?/g;
+    let match;
+    while ((match = regex.exec(wwwAuth)) !== null) {
+      params[match[1].toLowerCase()] = match[2];
+    }
+
+    const realm = params['realm'] || '';
+    const nonce = params['nonce'] || '';
+    const qop = params['qop'] || '';
+    const opaque = params['opaque'] || '';
+
+    const nc = '00000001';
+    const cnonce = crypto.randomBytes(8).toString('hex');
+
+    const ha1 = crypto.createHash('md5').update(`${username}:${realm}:${password}`).digest('hex');
+    const ha2 = crypto.createHash('md5').update(`${method}:${uri}`).digest('hex');
+
+    let response: string;
+    if (qop) {
+      response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
+    } else {
+      response = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
+    }
+
+    let authHeader = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
+    if (qop) {
+      authHeader += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+    }
+    if (opaque) {
+      authHeader += `, opaque="${opaque}"`;
+    }
+
+    return authHeader;
   }
 
   private setupMonitoringEvents() {

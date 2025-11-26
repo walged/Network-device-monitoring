@@ -22,7 +22,7 @@
     "electron",
     "react"
   ],
-  "author": "REVIUM",
+  "author": "ArthurDev",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {

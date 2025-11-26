@@ -104,9 +104,9 @@ export const About: React.FC = () => {
                 type="link"
                 size="small"
                 style={{ padding: 0, fontSize: 12 }}
-                onClick={() => openLink('https://revium.com')}
+                onClick={() => openLink('https://arthurdev.ru')}
               >
-                REVIUM.com
+                arthurdev.ru
               </Button>
             </Paragraph>
           </Card>
@@ -127,7 +127,7 @@ export const About: React.FC = () => {
                   style={{ padding: 0, fontSize: 15, fontWeight: 600 }}
                   onClick={() => openLink('https://arthurdev.ru')}
                 >
-                  REVIUM
+                  ArthurDev
                 </Button>
               </div>
             </div>
@@ -173,7 +173,7 @@ export const About: React.FC = () => {
           style={{ padding: 0, fontSize: 12, opacity: 0.6 }}
           onClick={() => openLink('https://arthurdev.ru')}
         >
-          REVIUM
+          ArthurDev
         </Button>
       </div>
     </div>

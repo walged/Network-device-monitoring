@@ -97,3 +97,34 @@ Key interfaces in `src/shared/types/index.ts`:
 - `DeviceStatus` - Status snapshot (online/offline, response_time)
 - `EventLog` - Application events (info/warning/error/critical)
 - `SNMPData` - SNMP query results
+
+## Camera Integration
+
+Cameras require HTTP Digest Authentication. Browser `<img src>` cannot perform Digest Auth, so camera snapshots must be loaded via IPC:
+
+```typescript
+// Renderer: call IPC to get base64 image
+const result = await api.camera.getSnapshot(url, login, password);
+// result.data contains base64-encoded JPEG
+
+// Display in React
+<img src={`data:image/jpeg;base64,${result.data}`} />
+```
+
+Camera vendors and snapshot URL patterns:
+- **Dahua/LTV:** `/cgi-bin/snapshot.cgi`
+- **Hikvision:** `/ISAPI/Streaming/channels/101/picture`
+- **Generic:** `/snapshot.jpg` or `/jpg/image.jpg`
+
+## PoE Control (TFortis switches only)
+
+PoE reset via SSH command: `ifconfig swport{N} poe reset`
+
+SSH credentials stored in device: `ssh_login`, `ssh_password`, `ssh_port` (default 22)
+
+## Important Notes
+
+- **App Name:** "Switch Camera Control" (SCC), productName in electron-builder.json
+- **Icon:** `scc.ico` (multi-size ICO created from scc.png via create-ico.js)
+- **Tray:** Minimizes to system tray, click tray icon to restore
+- **i18n:** Russian only (src/renderer/i18n/locales/ru.json)

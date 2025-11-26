@@ -67,7 +67,7 @@ export const NetworkMap: React.FC = () => {
   // Состояние для модального окна мониторинга камер
   const [monitorModalVisible, setMonitorModalVisible] = useState(false);
   const [monitoringSwitch, setMonitoringSwitch] = useState<SwitchWithCameras | null>(null);
-  const [gridColumns, setGridColumns] = useState<number>(3); // Количество колонок в сетке (дефолт 3)
+  const [gridColumns, setGridColumns] = useState<number>(2); // Количество колонок в сетке (дефолт 2 для широкоформатных камер)
 
   // Поиск
   const [searchText, setSearchText] = useState('');
@@ -417,7 +417,7 @@ export const NetworkMap: React.FC = () => {
         <div
           style={{
             width: '100%',
-            height: 200,
+            aspectRatio: '16/9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -441,7 +441,7 @@ export const NetworkMap: React.FC = () => {
         <div
           style={{
             width: '100%',
-            height: 200,
+            aspectRatio: '16/9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -469,7 +469,7 @@ export const NetworkMap: React.FC = () => {
         <div
           style={{
             width: '100%',
-            height: 200,
+            aspectRatio: '16/9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -506,7 +506,7 @@ export const NetworkMap: React.FC = () => {
         <div
           style={{
             width: '100%',
-            height: 200,
+            aspectRatio: '16/9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -542,7 +542,7 @@ export const NetworkMap: React.FC = () => {
         <div
           style={{
             width: '100%',
-            height: 200,
+            aspectRatio: '16/9',
             position: 'relative',
             borderRadius: 8,
             overflow: 'hidden',
@@ -550,7 +550,7 @@ export const NetworkMap: React.FC = () => {
           }}
         >
           <img
-            src={`data:image/jpeg;base64,${snapshot.data}`}
+            src={snapshot.data}
             alt={camera.name}
             style={{
               width: '100%',
@@ -597,7 +597,7 @@ export const NetworkMap: React.FC = () => {
       <div
         style={{
           width: '100%',
-          height: 200,
+          aspectRatio: '16/9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -665,7 +665,7 @@ export const NetworkMap: React.FC = () => {
           <>
             <div style={{ marginBottom: 8 }}>
               <VideoCameraOutlined style={{ marginRight: 6, color: '#1890ff' }} />
-              <strong>{camera.name}</strong>
+              <strong style={{ color: 'inherit' }}>{camera.name}</strong>
             </div>
             <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 8 }}>
               <div>IP: {camera.ip}</div>
@@ -693,7 +693,7 @@ export const NetworkMap: React.FC = () => {
             {/* PoE Status */}
             <div style={{ marginBottom: 12 }}>
               <ThunderboltOutlined style={{ marginRight: 6, color: '#faad14' }} />
-              <strong>PoE управление</strong>
+              <strong style={{ color: 'inherit' }}>PoE управление</strong>
               {isLoadingStatus && <LoadingOutlined style={{ marginLeft: 8 }} spin />}
             </div>
 
@@ -871,7 +871,7 @@ export const NetworkMap: React.FC = () => {
             <Badge status={getStatusColor(camera.current_status)} />
             <VideoCameraOutlined style={{ marginRight: 8, color: '#1890ff' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 500 }}>{camera.name}</div>
+              <div style={{ fontWeight: 500, color: 'inherit' }}>{camera.name}</div>
               <div style={{ fontSize: 12, color: '#8c8c8c' }}>
                 {camera.ip} • Порт {camera.port_number}
                 {camera.location && ` • ${camera.location}`}
@@ -920,7 +920,7 @@ export const NetworkMap: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {getStatusIcon(item.switch.current_status)}
             <ApiOutlined style={{ marginLeft: 8, marginRight: 8, color: '#1890ff' }} />
-            <span style={{ fontWeight: 500 }}>{item.switch.name}</span>
+            <span style={{ fontWeight: 500, color: 'inherit' }}>{item.switch.name}</span>
             <span style={{ color: '#8c8c8c', marginLeft: 8 }}>({item.switch.ip})</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -947,11 +947,11 @@ export const NetworkMap: React.FC = () => {
       children: (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <strong>Схема портов:</strong>
+            <strong style={{ color: 'inherit' }}>Схема портов:</strong>
             {renderPortGrid(item.switch, item.cameras)}
           </div>
           <div>
-            <strong>Подключенные камеры:</strong>
+            <strong style={{ color: 'inherit' }}>Подключенные камеры:</strong>
             {renderCameraList(item.cameras)}
           </div>
         </div>
@@ -1068,7 +1068,7 @@ export const NetworkMap: React.FC = () => {
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             {getStatusIcon(camera.current_status)}
                             <VideoCameraOutlined style={{ marginLeft: 8, color: '#1890ff' }} />
-                            <span style={{ marginLeft: 8, fontWeight: 500 }}>{camera.name}</span>
+                            <span style={{ marginLeft: 8, fontWeight: 500, color: 'inherit' }}>{camera.name}</span>
                           </div>
                           <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
                             <div>IP: {camera.ip}</div>
@@ -1132,7 +1132,7 @@ export const NetworkMap: React.FC = () => {
                   {monitoringSwitch.switch.current_status === 'online' ? 'В сети' : 'Недоступно'}
                 </Tag>
               </div>
-              <div>
+              <div style={{ color: 'inherit' }}>
                 Камер подключено: {monitoringSwitch.cameras.length} / {monitoringSwitch.switch.port_count || 0}
               </div>
             </div>

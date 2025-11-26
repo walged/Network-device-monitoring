@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatus: () => ipcRenderer.invoke('monitoring:getStatus'),
   },
 
+  // SNMP PoE Control
+  snmp: {
+    getPoEStatus: (switchId) => ipcRenderer.invoke('snmp:getPoEStatus', switchId),
+    setPoE: (switchId, port, enabled) => ipcRenderer.invoke('snmp:setPoE', switchId, port, enabled),
+    resetPoE: (switchId, port) => ipcRenderer.invoke('snmp:resetPoE', switchId, port),
+  },
+
   // События
   on: (channel, callback) => {
     const validChannels = [
@@ -39,7 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'device-deleted',
       'monitoring-status-changed',
       'settings-changed',
-      'play-notification-sound'
+      'play-notification-sound',
+      'poe-reset'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));
@@ -87,5 +95,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     add: (template) => ipcRenderer.invoke('credentials:add', template),
     update: (id, template) => ipcRenderer.invoke('credentials:update', id, template),
     delete: (id) => ipcRenderer.invoke('credentials:delete', id),
+  },
+
+  // Camera snapshot with Digest Auth support
+  camera: {
+    getSnapshot: (url, username, password) => ipcRenderer.invoke('camera:getSnapshot', url, username, password),
   }
 });

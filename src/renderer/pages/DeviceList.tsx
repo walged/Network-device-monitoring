@@ -64,6 +64,13 @@ export const DeviceList: React.FC = () => {
   // Шаблоны учетных данных
   const [credentialTemplates, setCredentialTemplates] = useState<any[]>([]);
 
+  // Тест видеопотока
+  const [videoTestVisible, setVideoTestVisible] = useState(false);
+  const [videoTestUrl, setVideoTestUrl] = useState<string>('');
+  const [videoTestError, setVideoTestError] = useState<string>('');
+  const [videoTestImage, setVideoTestImage] = useState<string>(''); // Base64 image data
+  const [videoTestLoading, setVideoTestLoading] = useState(false);
+
   // Динамические списки производителей в зависимости от типа
   const getVendorsByType = (type: string) => {
     switch (type) {
@@ -194,6 +201,115 @@ export const DeviceList: React.FC = () => {
         camera_login: template.login,
         camera_password: template.password,
       });
+    }
+  };
+
+  // Получение URL снапшота для камеры по производителю
+  // LTV камеры могут использовать как Hikvision (ISAPI), так и Dahua (cgi-bin) протокол
+  const getSnapshotUrlByVendor = (ip: string, vendor: string, auth: string): string => {
+    const vendorLower = (vendor || '').toLowerCase();
+
+    console.log(`[getSnapshotUrlByVendor] vendor="${vendorLower}", ip=${ip}`);
+
+    switch (vendorLower) {
+      case 'hikvision':
+        return `http://${auth}${ip}/ISAPI/Streaming/channels/101/picture`;
+
+      case 'ltv':
+        // LTV камеры используют Dahua CGI протокол (не Hikvision ISAPI!)
+        return `http://${auth}${ip}/cgi-bin/snapshot.cgi?channel=1`;
+
+      case 'dahua':
+        return `http://${auth}${ip}/cgi-bin/snapshot.cgi?channel=1`;
+
+      case 'axis':
+        return `http://${auth}${ip}/axis-cgi/jpg/image.cgi`;
+
+      case 'hanwha': // Samsung/Hanwha
+        return `http://${auth}${ip}/stw-cgi/video.cgi?msubmenu=snapshot&action=view&Profile=1`;
+
+      case 'mobotix':
+        return `http://${auth}${ip}/cgi-bin/faststream.jpg?stream=full`;
+
+      case 'generic':
+      default:
+        // Пробуем Dahua формат как наиболее распространенный
+        console.log(`[getSnapshotUrlByVendor] Using default Dahua format for vendor="${vendorLower}"`);
+        return `http://${auth}${ip}/cgi-bin/snapshot.cgi?channel=1`;
+    }
+  };
+
+  // Тест видеопотока камеры
+  const handleVideoTest = async () => {
+    const values = form.getFieldsValue();
+    const ip = values.ip;
+    const login = values.camera_login || '';
+    const password = values.camera_password || '';
+    const streamType = values.stream_type || 'http';
+    const customUrl = values.stream_url;
+    const vendor = values.vendor || '';
+
+    console.log('[Camera Test] Form values:', {
+      ip,
+      login: login ? '***' : '(empty)',
+      password: password ? '***' : '(empty)',
+      streamType,
+      customUrl,
+      vendor
+    });
+
+    if (!ip) {
+      message.warning('Введите IP-адрес камеры');
+      return;
+    }
+
+    let testUrl = '';
+
+    if (customUrl) {
+      // Если указан кастомный URL - используем его
+      testUrl = customUrl.includes('://') ? customUrl : `http://${customUrl}`;
+      console.log('[Camera Test] Using custom URL');
+    } else {
+      // Формируем URL автоматически в зависимости от типа потока (без auth в URL)
+      console.log('[Camera Test] Auto-generating URL for vendor:', vendor, 'streamType:', streamType);
+      testUrl = getSnapshotUrlByVendor(ip, vendor, ''); // No auth in URL
+    }
+
+    // Log URL without credentials for security
+    const safeUrl = testUrl.replace(/\/\/[^@]+@/, '//***:***@');
+    console.log('[Camera Test] Generated URL:', safeUrl);
+
+    setVideoTestError(''); // Reset previous error
+    setVideoTestImage(''); // Reset previous image
+    setVideoTestUrl(testUrl);
+    setVideoTestVisible(true);
+    setVideoTestLoading(true);
+
+    // Try to load via main process (supports Digest Auth)
+    if (api && login && password) {
+      console.log('[Camera Test] Attempting to load via main process with Digest Auth...');
+      try {
+        const result = await api.camera.getSnapshot(testUrl, login, password);
+        console.log('[Camera Test] Main process result:', { success: result.success, error: result.error });
+
+        if (result.success && result.data) {
+          setVideoTestImage(result.data);
+          setVideoTestLoading(false);
+          return;
+        } else {
+          console.log('[Camera Test] Main process failed:', result.error);
+          setVideoTestError(result.error || 'Неизвестная ошибка');
+          setVideoTestLoading(false);
+        }
+      } catch (e) {
+        console.error('[Camera Test] Exception:', e);
+        setVideoTestError('Ошибка при загрузке изображения');
+        setVideoTestLoading(false);
+      }
+    } else {
+      // No credentials - try direct img loading
+      console.log('[Camera Test] No credentials, will try direct img loading');
+      setVideoTestLoading(false);
     }
   };
 
@@ -332,8 +448,9 @@ export const DeviceList: React.FC = () => {
   };
 
   const showModal = async (device?: Device) => {
-    // Загружаем список коммутаторов для привязки камер
+    // Загружаем список коммутаторов и шаблоны учетных данных
     await loadSwitches();
+    await loadCredentialTemplates();
 
     if (device) {
       setEditingDevice(device);
@@ -752,6 +869,16 @@ export const DeviceList: React.FC = () => {
               >
                 <Input placeholder="http://IP/video или rtsp://IP:554/stream" />
               </Form.Item>
+
+              <Form.Item>
+                <Button
+                  type="default"
+                  icon={<WifiOutlined />}
+                  onClick={handleVideoTest}
+                >
+                  Проверить видео
+                </Button>
+              </Form.Item>
             </>
           )}
 
@@ -820,6 +947,65 @@ export const DeviceList: React.FC = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Модальное окно предпросмотра видео */}
+      <Modal
+        title="Предпросмотр видео"
+        open={videoTestVisible}
+        onCancel={() => {
+          setVideoTestVisible(false);
+          setVideoTestError('');
+          setVideoTestImage('');
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setVideoTestVisible(false);
+            setVideoTestError('');
+            setVideoTestImage('');
+          }}>
+            Закрыть
+          </Button>
+        ]}
+        width={700}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ marginBottom: 16, wordBreak: 'break-all', fontSize: 12, color: '#666' }}>
+            <strong>URL:</strong> {videoTestUrl.replace(/\/\/[^@]+@/, '//***:***@')}
+          </p>
+          {videoTestLoading ? (
+            <div style={{ padding: 60 }}>
+              <Spin size="large" tip="Загрузка изображения..." />
+            </div>
+          ) : videoTestError ? (
+            <div style={{ padding: 40, color: '#ff4d4f', background: '#fff2f0', borderRadius: 4 }}>
+              <p><strong>Не удалось загрузить изображение</strong></p>
+              <p style={{ fontSize: 12 }}>{videoTestError}</p>
+              <p style={{ fontSize: 12, marginTop: 16 }}>
+                Возможные причины:<br/>
+                • Неверный логин/пароль<br/>
+                • Камера не поддерживает snapshot по этому URL<br/>
+                • Сетевая ошибка или таймаут
+              </p>
+            </div>
+          ) : videoTestImage ? (
+            <img
+              src={videoTestImage}
+              alt="Camera preview"
+              style={{
+                maxWidth: '100%',
+                maxHeight: 400,
+                border: '1px solid #d9d9d9',
+                borderRadius: 4,
+                backgroundColor: '#000'
+              }}
+            />
+          ) : (
+            <div style={{ padding: 40, color: '#666' }}>
+              <p>Введите логин и пароль камеры для просмотра</p>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

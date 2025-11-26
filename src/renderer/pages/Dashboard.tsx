@@ -53,11 +53,12 @@ export const Dashboard: React.FC = () => {
 
     try {
       setLoading(true);
+      let deviceList: Device[] = [];
 
       // Загружаем устройства
       const devicesResponse = await api.database.getDevices();
       if (devicesResponse.success) {
-        const deviceList = devicesResponse.data || [];
+        deviceList = devicesResponse.data || [];
         setDevices(deviceList);
 
         // Вычисляем статистику (используем deviceList, а не devices!)
@@ -80,7 +81,7 @@ export const Dashboard: React.FC = () => {
       // Загружаем историю и группируем по часам
       const historyResponse = await api.database.getHistory();
       if (historyResponse.success) {
-        const history = historyResponse.data;
+        const history = historyResponse.data || [];
 
         // Группируем по часам
         const hourlyData: { [key: string]: { online: number, offline: number, total: number } } = {};
@@ -109,8 +110,8 @@ export const Dashboard: React.FC = () => {
         // Преобразуем в массив для графика
         const chartData = Object.keys(hourlyData).map(time => ({
           time,
-          online: hourlyData[time].total > 0 ? Math.round((hourlyData[time].online / hourlyData[time].total) * devices.length) : devices.length,
-          offline: hourlyData[time].total > 0 ? Math.round((hourlyData[time].offline / hourlyData[time].total) * devices.length) : 0,
+          online: hourlyData[time].online,
+          offline: hourlyData[time].offline,
         }));
 
         setHistoryData(chartData);

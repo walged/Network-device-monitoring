@@ -125,7 +125,7 @@ export const About: React.FC = () => {
                 <Button
                   type="link"
                   style={{ padding: 0, fontSize: 15, fontWeight: 600 }}
-                  onClick={() => openLink('https://revium.com')}
+                  onClick={() => openLink('https://arthurdev.ru')}
                 >
                   REVIUM
                 </Button>
@@ -171,7 +171,7 @@ export const About: React.FC = () => {
         <Button
           type="link"
           style={{ padding: 0, fontSize: 12, opacity: 0.6 }}
-          onClick={() => openLink('https://revium.com')}
+          onClick={() => openLink('https://arthurdev.ru')}
         >
           REVIUM
         </Button>

@@ -1,0 +1,1753 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zabbix_export>
+    <version>7.0</version>
+    <template_groups>
+        <template_group>
+            <uuid>dac8170bd1964a068fa7cebd74363b37</uuid>
+            <name>TFortis</name>
+        </template_group>
+    </template_groups>
+    <templates>
+        <template>
+            <uuid>8a76c02e08794c83b929134a9449abed</uuid>
+            <template>PSW-2G-Plus-UPS-Box</template>
+            <name>PSW-2G+UPS-Box</name>
+            <groups>
+                <group>
+                    <name>TFortis</name>
+                </group>
+            </groups>
+            <items>
+                <item>
+                    <uuid>4763fd0f2dfa472b8159f323c9aa16ff</uuid>
+                    <name>Firmware Version</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.3.1.0</snmp_oid>
+                    <key>fwVersion</key>
+                    <history>90d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <uuid>e90eb44008474261829c4191a60b75f5</uuid>
+                    <name>RX speed port 1</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.10.1</snmp_oid>
+                    <key>ifInOctets.1</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>5ccf0799a12a4997b078d6a825e1ac2e</uuid>
+                    <name>RX speed port 2</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.10.2</snmp_oid>
+                    <key>ifInOctets.2</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>bdb88f653a8c4f57b8bb95fc2cefec88</uuid>
+                    <name>RX speed port 3</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.10.3</snmp_oid>
+                    <key>ifInOctets.3</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>1e817459d28d40ec9e1d57c3bc45e9ea</uuid>
+                    <name>RX speed port 4</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.10.4</snmp_oid>
+                    <key>ifInOctets.4</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>be97652c509446c29207778530501bdb</uuid>
+                    <name>RX speed port 5</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.10.5</snmp_oid>
+                    <key>ifInOctets.5</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>a510e595fc3c4053879164442969619f</uuid>
+                    <name>RX speed port 6</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.10.6</snmp_oid>
+                    <key>ifInOctets.6</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>05ed88fa5d764282b2fcd9a0e5b06f25</uuid>
+                    <name>Status port 1</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.8.1</snmp_oid>
+                    <key>ifOperStatus.1</key>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>84777a7beaec4618b0812fa714a857d3</uuid>
+                    <name>Status port 2</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.8.2</snmp_oid>
+                    <key>ifOperStatus.2</key>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>a56ad2fa891f4099b737bd67610505b4</uuid>
+                    <name>Status port 3</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.8.3</snmp_oid>
+                    <key>ifOperStatus.3</key>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>3ed5ed0b48264d9c9450eb9c83131ff8</uuid>
+                    <name>Status port 4</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.8.4</snmp_oid>
+                    <key>ifOperStatus.4</key>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>4b31f54298244c0cb9860d6121bda04b</uuid>
+                    <name>Status port 5</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.8.5</snmp_oid>
+                    <key>ifOperStatus.5</key>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>ab29ab955e174bb2858682705473b051</uuid>
+                    <name>Status port 6</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.8.6</snmp_oid>
+                    <key>ifOperStatus.6</key>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>e9af8e22e4b94ea2bd53cde4e7da6fec</uuid>
+                    <name>TX speed port 1</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.16.1</snmp_oid>
+                    <key>ifOutOctets.1</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>3546e0a5bd1845b086205e96bf1d1207</uuid>
+                    <name>TX speed port 2</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.16.2</snmp_oid>
+                    <key>ifOutOctets.2</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>7760c033aaa24c418da68e66d74a4dbb</uuid>
+                    <name>TX speed port 3</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.16.3</snmp_oid>
+                    <key>ifOutOctets.3</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>e2af995b47dd477d9e1c31232a0dc4c3</uuid>
+                    <name>TX speed port 4</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.16.4</snmp_oid>
+                    <key>ifOutOctets.4</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>ee7c2b6fe5da405e8c8cddbe72965bb7</uuid>
+                    <name>TX speed port 5</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.16.5</snmp_oid>
+                    <key>ifOutOctets.5</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>48a17feef4494c25bef87e04d3dcdade</uuid>
+                    <name>TX speed port 6</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>1.3.6.1.2.1.2.2.1.16.6</snmp_oid>
+                    <key>ifOutOctets.6</key>
+                    <history>90d</history>
+                    <units>bps</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>8</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>CHANGE_PER_SECOND</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Port Statistic</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>14389008466e469389683db12cafab16</uuid>
+                    <name>Tamper Alarm</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.2.1.1.4.3</snmp_oid>
+                    <key>input0_alarm</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Inputs</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>6ed0dc96d5c54e3cb0c21b5c04e8a533</uuid>
+                    <name>Tamper State</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.2.1.1.3.1</snmp_oid>
+                    <key>input0_state</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Inputs</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>7f4638c4178649b090d321235f235ee1</uuid>
+                    <name>Input 1 Alarm</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.2.1.1.4.2</snmp_oid>
+                    <key>input1_alarm</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>the state of the input, which is considered to be alarm</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Inputs</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>dad1a184e72143119f30befd6f81759d</uuid>
+                    <name>Input 1 State</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.2.1.1.3.2</snmp_oid>
+                    <key>input1_state</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>current state of the input</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Inputs</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>1506f409a87646c8b96a18cfd5cdbc9e</uuid>
+                    <name>Input 2 Alarm</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.2.1.1.4.3</snmp_oid>
+                    <key>input2_alarm</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>the state of the input, which is considered to be alarm</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Inputs</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>ac599fd465a04e6583cbedb4a06ce7a2</uuid>
+                    <name>Input 2 State</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.2.1.1.3.3</snmp_oid>
+                    <key>input2_state</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>current state of the input</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Inputs</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>de6912e0c0c74a669e0e1381f7b2b327</uuid>
+                    <name>Port 1 AutoRestart Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.1.1.1.2.1</snmp_oid>
+                    <key>port1_ar_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'AutoRestart'. 
+'normal' - no error, 
+'noLink' - no link activity on port,
+'noPing' - no answer to ping,
+'lowSpeed' - low speed on port</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>488d91808aaa4d6e9dfb2e734cfd2529</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port1_ar_status)=4</expression>
+                            <name>Port 1 AutoRestart: low speed on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 1 AutoRestart: low speed on port.
+Низкая скорость на порту 1.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>73eaf49c23d148eb92d03290df106b46</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port1_ar_status)=2</expression>
+                            <name>Port 1 AutoRestart: no link on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 1 AutoRestart: no link on port.
+Нет линка на порту 1.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>976be0a25462485791f32e8588c6b1ab</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port1_ar_status)=3</expression>
+                            <name>Port 1 AutoRestart: no Ping response on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 1 AutoRestart: no Ping response on port.
+Устройство на порту 1 не отвечает на Ping.</description>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>3560daa116b64a148ceb474c1fc7cdb6</uuid>
+                    <name>Port 1 ComfortStart complete</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.2.1.1.2.1</snmp_oid>
+                    <key>port1_cs_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'ComfortStart' on port. 
+true - ComfortStart is ready, 
+false- ComfortStart in processing</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>3f5bd2e863714533a8743b87a81ecb46</uuid>
+                    <name>Port 1 PoE Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.2.1</snmp_oid>
+                    <key>port1_poe</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>d9feaa6ac5204a2099ea19ff5561ee7a</uuid>
+                    <name>Port 1 PoE Power</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.3.1</snmp_oid>
+                    <key>port1_pwr</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <units>Watt</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>0.001</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>6edfa1db5827445999572e45d7f6093c</uuid>
+                    <name>Port 2 AutoRestart Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.1.1.1.2.2</snmp_oid>
+                    <key>port2_ar_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'AutoRestart'. 
+'normal' - no error, 
+'noLink' - no link activity on port,
+'noPing' - no answer to ping,
+'lowSpeed' - low speed on port</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>d608381b5b7647118454fe2919779ee8</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port2_ar_status)=4</expression>
+                            <name>Port 2 AutoRestart: low speed on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 2 AutoRestart: low speed on port.
+Низкая скорость на порту 2.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>266b9606c964409ea71f4ae31c982b0b</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port2_ar_status)=2</expression>
+                            <name>Port 2 AutoRestart: no link on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 2 AutoRestart: no link on port.
+Нет линка на порту 2.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>beeaef0fe73b4bba9a6392d98e270ef6</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port2_ar_status)=3</expression>
+                            <name>Port 2 AutoRestart: no Ping response on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 2 AutoRestart: no Ping response on port.
+Устройство на порту 2 не отвечает на Ping.</description>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>dd37966cadc8431d9572fb18c3d5ce41</uuid>
+                    <name>Port 2 ComfortStart complete</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.2.1.1.2.2</snmp_oid>
+                    <key>port2_cs_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'ComfortStart' on port. 
+true - ComfortStart is ready, 
+false- ComfortStart in processing</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>ac630f4e6f7e486b9b980ae3bef2f856</uuid>
+                    <name>Port 2 PoE Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.2.2</snmp_oid>
+                    <key>port2_poe</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>8f0eb52e69d142389d46196b0f5eaaaa</uuid>
+                    <name>Port 2 PoE Power</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.3.2</snmp_oid>
+                    <key>port2_pwr</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <units>Watt</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>0.001</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>50bfa510f77a445281a89614b6d14f00</uuid>
+                    <name>Port 3 AutoRestart Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.1.1.1.2.3</snmp_oid>
+                    <key>port3_ar_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'AutoRestart'. 
+'normal' - no error, 
+'noLink' - no link activity on port,
+'noPing' - no answer to ping,
+'lowSpeed' - low speed on port</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>bf32312ac3294df5b477285fc89f2443</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port3_ar_status)=4</expression>
+                            <name>Port 3 AutoRestart: low speed on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 3 AutoRestart: low speed on port.
+Низкая скорость на порту 3.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>4e2f2258b8cf411496fc66727eafbd16</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port3_ar_status)=2</expression>
+                            <name>Port 3 AutoRestart: no link on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 3 AutoRestart: no link on port.
+Нет линка на порту 3.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>01df4297f0c44031a40a932c7cc9db42</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port3_ar_status)=3</expression>
+                            <name>Port 3 AutoRestart: no Ping response on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 3 AutoRestart: no Ping response on port.
+Устройство на порту 3 не отвечает на Ping.</description>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>c7b3a0be349249838d4307d2d45353bf</uuid>
+                    <name>Port 3 ComfortStart complete</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.2.1.1.2.3</snmp_oid>
+                    <key>port3_cs_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'ComfortStart' on port. 
+true - ComfortStart is ready, 
+false- ComfortStart in processing</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>f775ffed755c4ec3a64ff421be97d017</uuid>
+                    <name>Port 3 PoE Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.2.3</snmp_oid>
+                    <key>port3_poe</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>441e877db576405aa7361095d4155a5d</uuid>
+                    <name>Port 3 PoE Power</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.3.3</snmp_oid>
+                    <key>port3_pwr</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <units>Watt</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>0.001</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>4ea7705551054714b60909a8604b0cd2</uuid>
+                    <name>Port 4 AutoRestart Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.1.1.1.2.4</snmp_oid>
+                    <key>port4_ar_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'AutoRestart'. 
+'normal' - no error, 
+'noLink' - no link activity on port,
+'noPing' - no answer to ping,
+'lowSpeed' - low speed on port</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>fe27af0a1fb64fe4a649b1587103ed52</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port4_ar_status)=4</expression>
+                            <name>Port 4 AutoRestart: low speed on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 4 AutoRestart: low speed on port.
+Низкая скорость на порту 4.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>8e5c3508cbbc40519390d66ebf887532</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port4_ar_status)=2</expression>
+                            <name>Port 4 AutoRestart: no link on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 4 AutoRestart: no link on port.
+Нет линка на порту 4.</description>
+                        </trigger>
+                        <trigger>
+                            <uuid>8208ece09bbb46f8843dbc5b5ead4df6</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/port4_ar_status)=3</expression>
+                            <name>Port 4 AutoRestart: no Ping response on port</name>
+                            <priority>HIGH</priority>
+                            <description>Port 4 AutoRestart: no Ping response on port.
+Устройство на порту 4 не отвечает на Ping.</description>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>fd1f98454d0c4dc9aa4886ffb86b6e3a</uuid>
+                    <name>Port 4 ComfortStart complete</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.6.2.1.1.2.4</snmp_oid>
+                    <key>port4_cs_status</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <description>State of special function 'ComfortStart' on port. 
+true - ComfortStart is ready, 
+false- ComfortStart in processing</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>Special Function</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>867a19ddc8d24b4aac20ce473dc72c7e</uuid>
+                    <name>Port 4 PoE Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.2.4</snmp_oid>
+                    <key>port4_poe</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>cc61310f3b814d26a431f7100c960fe9</uuid>
+                    <name>Port 4 PoE Power</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.5.1.1.3.4</snmp_oid>
+                    <key>port4_pwr</key>
+                    <delay>30s</delay>
+                    <history>90d</history>
+                    <units>Watt</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>0.001</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>PoE Status</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>7725d46f5c0148ff96cab38e3d1770de</uuid>
+                    <name>UPS Power Source</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.1.2.0</snmp_oid>
+                    <key>ups_source</key>
+                    <history>90d</history>
+                    <description>&quot;This variable  shows the power source for switch. 'Battery'(1) - power source is battery,no external AC voltage. 'AC'(2) - power source is external AC voltage,normal operation.&quot;</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>UPS</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>e182579a13ce4d40a05d8ceaadd240b0</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/ups_source)=1</expression>
+                            <name>Power Source is Battery</name>
+                            <priority>HIGH</priority>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>e2f7f343bc5849cd9ec6144d5ddef780</uuid>
+                    <name>UPS Status</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.1.1.0</snmp_oid>
+                    <key>ups_status</key>
+                    <history>90d</history>
+                    <description>true - UPS module is connected  to switch</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>UPS</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>0e2593cb64ed453c9567e239ab316830</uuid>
+                    <name>UPS Battery Voltage</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.4.1.42019.3.2.2.1.3.0</snmp_oid>
+                    <key>ups_vbat</key>
+                    <history>90d</history>
+                    <value_type>FLOAT</value_type>
+                    <description>&quot;This variable shows battery voltage. This option only for switches with UPS module.&quot;</description>
+                    <tags>
+                        <tag>
+                            <tag>Application</tag>
+                            <value>UPS</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>44d38763ad9e421daf41dd7ef6d5a90e</uuid>
+                    <name>Uptime</name>
+                    <type>SNMP_AGENT</type>
+                    <snmp_oid>.1.3.6.1.2.1.1.3.0</snmp_oid>
+                    <key>Uptime</key>
+                    <history>90d</history>
+                    <units>s</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <parameters>
+                                <parameter>0.01</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <triggers>
+                        <trigger>
+                            <uuid>61b1373e5a364e1d806c07bb3085c97a</uuid>
+                            <expression>last(/PSW-2G-Plus-UPS-Box/Uptime)&lt;600</expression>
+                            <name>{HOSTNAME} has just been restarted</name>
+                            <priority>AVERAGE</priority>
+                        </trigger>
+                    </triggers>
+                </item>
+            </items>
+            <dashboards>
+                <dashboard>
+                    <uuid>09bfbc98dfbf41b48671ed9d2e225bf9</uuid>
+                    <name>TFortis</name>
+                    <pages>
+                        <page>
+                            <widgets>
+                                <widget>
+                                    <type>graph</type>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 1 Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAA</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <y>5</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 2 Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAC</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <y>10</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 3 Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAE</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <y>15</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 4 Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAG</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <y>20</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 5 Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAI</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <y>25</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 6 Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAK</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <x>36</x>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 1 PoE</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAB</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <x>36</x>
+                                    <y>5</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 2 PoE</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAD</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <x>36</x>
+                                    <y>10</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 3 PoE</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAF</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <x>36</x>
+                                    <y>15</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>Port 4 PoE</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAH</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>graph</type>
+                                    <x>36</x>
+                                    <y>20</y>
+                                    <width>36</width>
+                                    <height>5</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>PSW-2G-Plus-UPS-Box</host>
+                                                <name>UPS Statistics</name>
+                                            </value>
+                                        </field>
+                                        <field>
+                                            <type>STRING</type>
+                                            <name>reference</name>
+                                            <value>AAAAJ</value>
+                                        </field>
+                                        <field>
+                                            <type>INTEGER</type>
+                                            <name>source_type</name>
+                                            <value>0</value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                            </widgets>
+                        </page>
+                    </pages>
+                </dashboard>
+            </dashboards>
+            <valuemaps>
+                <valuemap>
+                    <uuid>f8063717cafa4314bb33ae098e2cd649</uuid>
+                    <name>AutoRestart state</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>normal</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>noLink</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>3</value>
+                            <newvalue>noPing</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>4</value>
+                            <newvalue>lowSpeed</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>0d09825041094d6bac1b7c0553cf6e3b</uuid>
+                    <name>Inputs alarm</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>open</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>short</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>3</value>
+                            <newvalue>any change</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>3cc372e0bbaa4831a360ef2bedb17a26</uuid>
+                    <name>Inputs state</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>open</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>short</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>3f8c61ff17204ce8a240327150542db7</uuid>
+                    <name>Logical</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>true</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>false</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>72bef650d0c2443cb7b2a0864ae2a6c9</uuid>
+                    <name>Logical UPS Avaliable</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>UPS module enable</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>UPS module not enable</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>cf79c77221a349639e58b5edd22db171</uuid>
+                    <name>Logical UPS Source</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>battery</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>ac</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>d9b0caf530264a1fa55dc377b941b201</uuid>
+                    <name>SNMP interface status (ifOperStatus)</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>up</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>down</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>3</value>
+                            <newvalue>testing</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>4</value>
+                            <newvalue>unknown</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>5</value>
+                            <newvalue>dormant</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>6</value>
+                            <newvalue>notPresent</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>7</value>
+                            <newvalue>lowerLayerDown</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+                <valuemap>
+                    <uuid>55316c5e38774659bb8e6b58c93580ec</uuid>
+                    <name>Tamper alarm</name>
+                    <mappings>
+                        <mapping>
+                            <value>1</value>
+                            <newvalue>open</newvalue>
+                        </mapping>
+                        <mapping>
+                            <value>2</value>
+                            <newvalue>short</newvalue>
+                        </mapping>
+                    </mappings>
+                </valuemap>
+            </valuemaps>
+        </template>
+    </templates>
+    <triggers>
+        <trigger>
+            <uuid>d0911b0ed9e64947957ad164820f1a1f</uuid>
+            <expression>last(/PSW-2G-Plus-UPS-Box/ups_vbat)&lt;44 and last(/PSW-2G-Plus-UPS-Box/ups_source)=1</expression>
+            <name>Battery voltage is low</name>
+            <priority>HIGH</priority>
+        </trigger>
+        <trigger>
+            <uuid>e0ec7eee8c7b444ca9cf1dc4331dc67e</uuid>
+            <expression>(last(/PSW-2G-Plus-UPS-Box/input1_alarm)=1 and last(/PSW-2G-Plus-UPS-Box/input1_state)=1) or (last(/PSW-2G-Plus-UPS-Box/input1_alarm)=2 and last(/PSW-2G-Plus-UPS-Box/input1_state)=2) or (last(/PSW-2G-Plus-UPS-Box/input1_alarm)=3 and last(/PSW-2G-Plus-UPS-Box/input1_state,#2)=1 and last(/PSW-2G-Plus-UPS-Box/input1_state)=2) or (last(/PSW-2G-Plus-UPS-Box/input1_alarm)=3 and last(/PSW-2G-Plus-UPS-Box/input1_state,#2)=2 and last(/PSW-2G-Plus-UPS-Box/input1_state)=1)</expression>
+            <name>Input 1 is active</name>
+            <priority>HIGH</priority>
+            <description>Вход 1 (Input 1) активен!</description>
+        </trigger>
+        <trigger>
+            <uuid>0b221e9035564cfe9e97ebafc633ea90</uuid>
+            <expression>(last(/PSW-2G-Plus-UPS-Box/input2_alarm)=1 and last(/PSW-2G-Plus-UPS-Box/input2_state)=1) or (last(/PSW-2G-Plus-UPS-Box/input2_alarm)=2 and last(/PSW-2G-Plus-UPS-Box/input2_state)=2) or (last(/PSW-2G-Plus-UPS-Box/input2_alarm)=3 and last(/PSW-2G-Plus-UPS-Box/input2_state,#2)=1 and last(/PSW-2G-Plus-UPS-Box/input2_state)=2) or (last(/PSW-2G-Plus-UPS-Box/input2_alarm)=3 and last(/PSW-2G-Plus-UPS-Box/input2_state,#2)=2 and last(/PSW-2G-Plus-UPS-Box/input2_state)=1)</expression>
+            <name>Input 2 is active</name>
+            <priority>HIGH</priority>
+            <description>Вход 2 (Input 2) активен!</description>
+        </trigger>
+    </triggers>
+    <graphs>
+        <graph>
+            <uuid>d6f5e94e0b2c47788347700b8c6972f8</uuid>
+            <name>Port 1 PoE</name>
+            <graph_items>
+                <graph_item>
+                    <color>1A7C11</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port1_pwr</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>F63100</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port1_poe</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>9cab15add4b04962877297b5511d932d</uuid>
+            <name>Port 1 Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifInOctets.1</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifOutOctets.1</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>a350ac6dd24145dd8b7282e21e2e9ae9</uuid>
+            <name>Port 2 PoE</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port2_pwr</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port2_poe</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>c321f0cbb9724f8c8256ed942b6142cc</uuid>
+            <name>Port 2 Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifInOctets.2</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifOutOctets.2</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>18a338269b2641d3a8cb25a4ae0cc048</uuid>
+            <name>Port 3 PoE</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port3_pwr</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port3_poe</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>b5bb5dbab5104474b7a6d4cb41bbcd9f</uuid>
+            <name>Port 3 Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifInOctets.3</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifOutOctets.3</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>9d440dd302a54b32b83a205a0810bcd5</uuid>
+            <name>Port 4 PoE</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port4_pwr</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>port4_poe</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>211662e26595443996ce5141ffcbbc5d</uuid>
+            <name>Port 4 Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifInOctets.4</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifOutOctets.4</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>3c45ed4dc7654a3183984b13aa78366e</uuid>
+            <name>Port 5 Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifInOctets.5</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifOutOctets.5</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>c53f45189d6b40b09ca08dac583333e7</uuid>
+            <name>Port 6 Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>2774A4</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifInOctets.6</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>A54F10</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ifOutOctets.6</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+        <graph>
+            <uuid>f80d640c332047bb87eb8e2a8db36741</uuid>
+            <name>UPS Statistics</name>
+            <graph_items>
+                <graph_item>
+                    <color>1A7C11</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ups_vbat</key>
+                    </item>
+                </graph_item>
+                <graph_item>
+                    <sortorder>1</sortorder>
+                    <color>F63100</color>
+                    <item>
+                        <host>PSW-2G-Plus-UPS-Box</host>
+                        <key>ups_source</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+    </graphs>
+</zabbix_export>

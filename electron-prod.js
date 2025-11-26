@@ -1,5 +1,23 @@
 const { app, BrowserWindow, ipcMain, Notification, dialog, shell, Tray, Menu, nativeImage } = require('electron');
 
+// Single instance lock - prevent multiple instances of the app
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  app.quit();
+} else {
+  // This is the first instance
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, focus our window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 // Автозапуск при старте Windows
 function setAutoLaunch(enable) {
   if (process.platform !== 'win32') return;
@@ -12,7 +30,72 @@ function setAutoLaunch(enable) {
 }
 const path = require('path');
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
+
+// ============ File Logging ============
+let logFilePath = null;
+let logStream = null;
+
+function initLogging() {
+  try {
+    const userDataPath = app.getPath('userData');
+    logFilePath = path.join(userDataPath, 'scc-log.txt');
+
+    // Rotate log if too large (> 5MB)
+    try {
+      const stats = fsSync.statSync(logFilePath);
+      if (stats.size > 5 * 1024 * 1024) {
+        const backupPath = path.join(userDataPath, 'scc-log-old.txt');
+        if (fsSync.existsSync(backupPath)) {
+          fsSync.unlinkSync(backupPath);
+        }
+        fsSync.renameSync(logFilePath, backupPath);
+      }
+    } catch (e) {
+      // File doesn't exist yet, that's ok
+    }
+
+    logStream = fsSync.createWriteStream(logFilePath, { flags: 'a' });
+
+    // Write startup header
+    const startLine = `\n${'='.repeat(60)}\n[${new Date().toISOString()}] SCC Application Started\n${'='.repeat(60)}\n`;
+    logStream.write(startLine);
+
+    console.log(`[Logger] Log file: ${logFilePath}`);
+  } catch (e) {
+    console.error('[Logger] Failed to initialize logging:', e);
+  }
+}
+
+function writeLog(level, category, message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logLine = `[${timestamp}] [${level}] [${category}] ${message}${data ? ' | Data: ' + JSON.stringify(data) : ''}\n`;
+
+  // Console output
+  if (level === 'ERROR') {
+    console.error(logLine.trim());
+  } else {
+    console.log(logLine.trim());
+  }
+
+  // File output
+  if (logStream) {
+    logStream.write(logLine);
+  }
+}
+
+function logInfo(category, message, data = null) {
+  writeLog('INFO', category, message, data);
+}
+
+function logError(category, message, data = null) {
+  writeLog('ERROR', category, message, data);
+}
+
+function logDebug(category, message, data = null) {
+  writeLog('DEBUG', category, message, data);
+}
 
 // SQLite Database
 const Database = require('better-sqlite3');
@@ -27,6 +110,31 @@ let isQuitting = false;
 
 // Ping service - используем нативную команду вместо библиотеки для надежности
 const { exec } = require('child_process');
+
+// SNMP library for PoE control
+const snmp = require('net-snmp');
+
+// TFortis SNMP OIDs for PoE management (from TFortis-407-mib-v2.3.mib)
+// Enterprise OID: 1.3.6.1.4.1.42019 (Fort-Telecom)
+// Structure: forttelecomMIB.switch.psw = 42019.3.2
+const TFORTIS_POE_OIDS = {
+  // Config (read-write): configPSW.portPoe.portPoeTable.portPoeEntry
+  // OID: 42019.3.2.1.3.1.1.{column}.{port}
+  // portPoeState: enabled(1), disabled(2)
+  poeControl: '1.3.6.1.4.1.42019.3.2.1.3.1.1.2',  // .{port} - 1=enabled, 2=disabled
+
+  // Status (read-only): statusPSW.poeStatus.poeStatusTable.poeStatusEntry
+  // OID: 42019.3.2.2.5.1.1.{column}.{port}
+  // portPoeStatusState: up(1), down(2)
+  // portPoeStatusPower: power in mW
+  poeStatus: '1.3.6.1.4.1.42019.3.2.2.5.1.1.2',   // .{port} - 1=up, 2=down
+  poePower: '1.3.6.1.4.1.42019.3.2.2.5.1.1.3',    // .{port} - power in mW
+};
+
+// Standard SNMP OIDs
+const STANDARD_OIDS = {
+  ifOperStatus: '1.3.6.1.2.1.2.2.1.8',  // .{port} - port operational status (1=up, 2=down)
+};
 
 // Initialize database
 function initDatabase() {
@@ -446,6 +554,18 @@ function getDeviceHistory(deviceId, limit = 100) {
   return db.prepare('SELECT * FROM device_status WHERE device_id = ? ORDER BY timestamp DESC LIMIT ?').all(deviceId, limit);
 }
 
+// Получение истории статусов всех устройств за последние 24 часа
+function getStatusHistory24h() {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  return db.prepare(`
+    SELECT ds.*, d.name as device_name
+    FROM device_status ds
+    LEFT JOIN devices d ON ds.device_id = d.id
+    WHERE ds.timestamp >= ?
+    ORDER BY ds.timestamp ASC
+  `).all(twentyFourHoursAgo);
+}
+
 function addEventLog(event) {
   const stmt = db.prepare(`
     INSERT INTO event_logs (device_id, device_name, device_ip, event_type, message, details, timestamp)
@@ -590,6 +710,197 @@ async function pingDevice(ip, retries = 3, retryDelay = 2000) {
     host: ip,
     attempts: retries
   };
+}
+
+// ============ SNMP PoE Management Functions ============
+
+/**
+ * Get PoE status for all ports of a switch
+ * @param {string} ip - Switch IP address
+ * @param {string} community - SNMP community string (default: 'public')
+ * @param {number} portCount - Number of ports to check
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function getPoEStatus(ip, community = 'public', portCount = 8) {
+  return new Promise((resolve) => {
+    logInfo('SNMP', `Creating session to ${ip} with community "${community}"`);
+    logDebug('SNMP', `Port count: ${portCount}`);
+
+    const session = snmp.createSession(ip, community, {
+      version: snmp.Version2c,
+      timeout: 5000,
+      retries: 1
+    });
+
+    const oids = [];
+    for (let port = 1; port <= portCount; port++) {
+      oids.push(`${TFORTIS_POE_OIDS.poeStatus}.${port}`);
+      oids.push(`${TFORTIS_POE_OIDS.poePower}.${port}`);
+    }
+
+    logInfo('SNMP', `Getting PoE status for ${ip}, ports 1-${portCount}`);
+    logDebug('SNMP', `OIDs to query: ${oids.join(', ')}`);
+
+    session.get(oids, (error, varbinds) => {
+      session.close();
+
+      if (error) {
+        logError('SNMP', `Error getting PoE status from ${ip}: ${error.message}`, {
+          errorName: error.name,
+          errorCode: error.code,
+          errorStack: error.stack
+        });
+        resolve({ success: false, error: error.message });
+        return;
+      }
+
+      logInfo('SNMP', `Received ${varbinds ? varbinds.length : 0} varbinds from ${ip}`);
+
+      const ports = {};
+
+      // Initialize all ports with default values
+      for (let port = 1; port <= portCount; port++) {
+        ports[port] = { port: port, status: 'unknown', power: 0 };
+      }
+
+      if (varbinds && varbinds.length > 0) {
+        for (const varbind of varbinds) {
+          // Convert OID to string - net-snmp returns OID as string already
+          const oidStr = String(varbind.oid);
+          logDebug('SNMP', `Processing varbind`, { oid: oidStr, type: varbind.type, value: varbind.value });
+
+          if (snmp.isVarbindError(varbind)) {
+            const errorMsg = snmp.varbindError(varbind);
+            logError('SNMP', `Varbind error for OID ${oidStr}: ${errorMsg}`);
+            continue;
+          }
+
+          // Extract port number from the end of OID
+          const oidParts = oidStr.split('.');
+          const portNumber = parseInt(oidParts[oidParts.length - 1]);
+
+          logDebug('SNMP', `Parsed port number: ${portNumber} from OID ${oidStr}`);
+
+          if (portNumber < 1 || portNumber > portCount) {
+            logError('SNMP', `Port number ${portNumber} out of range (1-${portCount})`);
+            continue;
+          }
+
+          // Check which OID type this is by comparing the base OID
+          const statusOidBase = TFORTIS_POE_OIDS.poeStatus;
+          const powerOidBase = TFORTIS_POE_OIDS.poePower;
+
+          if (oidStr.startsWith(statusOidBase)) {
+            // TFortis status: up(1)=on, down(2)=off (from MIB file)
+            const statusValue = parseInt(varbind.value);
+            ports[portNumber].status = statusValue === 1 ? 'on' : 'off';
+            ports[portNumber].statusRaw = statusValue;
+            logInfo('SNMP', `Port ${portNumber} status: ${ports[portNumber].status} (raw: ${statusValue})`);
+          } else if (oidStr.startsWith(powerOidBase)) {
+            // Power in milliwatts
+            const powerMw = parseInt(varbind.value) || 0;
+            ports[portNumber].power = Math.round(powerMw / 100) / 10; // Convert mW to W with 1 decimal
+            ports[portNumber].powerRaw = powerMw;
+            logInfo('SNMP', `Port ${portNumber} power: ${ports[portNumber].power}W (raw: ${powerMw}mW)`);
+          }
+        }
+      } else {
+        logError('SNMP', `No varbinds received from ${ip} - device may not support these OIDs`);
+      }
+
+      const portList = Object.values(ports).sort((a, b) => a.port - b.port);
+      logInfo('SNMP', `Final PoE status for ${ip}`, { ports: portList });
+
+      resolve({
+        success: true,
+        data: {
+          ip,
+          ports: portList,
+          totalPorts: portCount
+        }
+      });
+    });
+  });
+}
+
+/**
+ * Set PoE state for a specific port
+ * @param {string} ip - Switch IP address
+ * @param {number} port - Port number
+ * @param {boolean} enabled - true = on, false = off
+ * @param {string} community - SNMP write community (default: 'private')
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function setPoEState(ip, port, enabled, community = 'private') {
+  return new Promise((resolve) => {
+    console.log(`[SNMP] Creating write session to ${ip} with community "${community}"`);
+
+    const session = snmp.createSession(ip, community, {
+      version: snmp.Version2c,
+      timeout: 5000,
+      retries: 1
+    });
+
+    const oid = `${TFORTIS_POE_OIDS.poeControl}.${port}`;
+    // TFortis uses: 1=enabled, 2=disabled (from MIB file)
+    const value = enabled ? 1 : 2;
+
+    console.log(`[SNMP] Setting PoE on ${ip} port ${port} to ${enabled ? 'ENABLED(1)' : 'DISABLED(2)'}`);
+    console.log(`[SNMP] OID: ${oid}, Value: ${value}`);
+
+    const varbinds = [{
+      oid: oid,
+      type: snmp.ObjectType.Integer,
+      value: value
+    }];
+
+    session.set(varbinds, (error, varbinds) => {
+      session.close();
+
+      if (error) {
+        console.error(`[SNMP] Error setting PoE on ${ip} port ${port}:`, error.message);
+        console.error(`[SNMP] Full error:`, error);
+        resolve({ success: false, error: error.message });
+        return;
+      }
+
+      console.log(`[SNMP] Successfully set PoE on ${ip} port ${port} to ${enabled ? 'ON' : 'OFF'}`);
+      if (varbinds) {
+        console.log(`[SNMP] Response varbinds:`, varbinds);
+      }
+      resolve({ success: true });
+    });
+  });
+}
+
+/**
+ * Reset PoE on a port (turn off, wait, turn on)
+ * @param {string} ip - Switch IP address
+ * @param {number} port - Port number
+ * @param {string} community - SNMP write community (default: 'private')
+ * @param {number} delay - Delay in ms between off and on (default: 3000)
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function resetPoE(ip, port, community = 'private', delay = 3000) {
+  console.log(`[SNMP] Resetting PoE on ${ip} port ${port} (delay: ${delay}ms)`);
+
+  // Turn off
+  const offResult = await setPoEState(ip, port, false, community);
+  if (!offResult.success) {
+    return { success: false, error: `Failed to turn off PoE: ${offResult.error}` };
+  }
+
+  // Wait
+  await new Promise(resolve => setTimeout(resolve, delay));
+
+  // Turn on
+  const onResult = await setPoEState(ip, port, true, community);
+  if (!onResult.success) {
+    return { success: false, error: `Failed to turn on PoE: ${onResult.error}` };
+  }
+
+  console.log(`[SNMP] PoE reset completed on ${ip} port ${port}`);
+  return { success: true };
 }
 
 // Monitoring
@@ -904,14 +1215,23 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Initialize logging first
+  initLogging();
+  logInfo('App', 'Application starting...');
+
   // Устанавливаем имя приложения для Windows уведомлений
   if (process.platform === 'win32') {
     app.setAppUserModelId('Switch Camera Control');
   }
 
   initDatabase();
+  logInfo('App', 'Database initialized');
+
   createWindow();
+  logInfo('App', 'Main window created');
+
   createTray();
+  logInfo('App', 'System tray created');
 
   // Auto-start monitoring
   const autoStart = getSetting('auto_start');
@@ -1030,9 +1350,9 @@ ipcMain.handle('db:getEvents', async (_, limit) => {
   }
 });
 
-ipcMain.handle('db:getHistory', async (_, limit) => {
+ipcMain.handle('db:getHistory', async () => {
   try {
-    const history = getEventLogs(limit || 100);
+    const history = getStatusHistory24h();
     return { success: true, data: history };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1422,6 +1742,315 @@ ipcMain.handle('system:playSound', async () => {
     }
     return { success: true };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ SNMP PoE Control IPC Handlers ============
+
+// Get PoE status for all ports of a switch
+ipcMain.handle('snmp:getPoEStatus', async (_, switchId) => {
+  logInfo('IPC', `snmp:getPoEStatus called for switchId: ${switchId}`);
+
+  try {
+    const device = getDevice(switchId);
+    if (!device) {
+      logError('IPC', `Device not found for switchId: ${switchId}`);
+      return { success: false, error: 'Device not found' };
+    }
+
+    logInfo('IPC', `Found device: ${device.name} (${device.ip})`, {
+      id: device.id,
+      vendor: device.vendor,
+      portCount: device.port_count,
+      snmpCommunity: device.snmp_community || 'public (default)'
+    });
+
+    const community = device.snmp_community || 'public';
+    const portCount = device.port_count || 8;
+
+    logInfo('IPC', `Calling getPoEStatus for ${device.ip} with community "${community}" and ${portCount} ports`);
+
+    const result = await getPoEStatus(device.ip, community, portCount);
+
+    logInfo('IPC', `getPoEStatus result for ${device.ip}`, { success: result.success, error: result.error });
+
+    return result;
+  } catch (error) {
+    logError('IPC', `Exception in snmp:getPoEStatus: ${error.message}`, { stack: error.stack });
+    return { success: false, error: error.message };
+  }
+});
+
+// Set PoE state (on/off) for a specific port
+ipcMain.handle('snmp:setPoE', async (_, switchId, port, enabled) => {
+  try {
+    const device = getDevice(switchId);
+    if (!device) {
+      return { success: false, error: 'Device not found' };
+    }
+
+    // Use 'private' as default write community for SNMP SET operations
+    const community = 'private';
+
+    const result = await setPoEState(device.ip, port, enabled, community);
+
+    if (result.success) {
+      // Log the action
+      const camera = db.prepare('SELECT name FROM devices WHERE parent_device_id = ? AND port_number = ?').get(switchId, port);
+      const cameraName = camera ? camera.name : `Port ${port}`;
+
+      addEventLog({
+        device_id: switchId,
+        device_name: device.name,
+        device_ip: device.ip,
+        event_type: 'info',
+        message: `PoE ${enabled ? 'включен' : 'выключен'} на порту ${port} (${cameraName})`
+      });
+    }
+
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Reset PoE on a port (power cycle)
+ipcMain.handle('snmp:resetPoE', async (_, switchId, port) => {
+  try {
+    const device = getDevice(switchId);
+    if (!device) {
+      return { success: false, error: 'Device not found' };
+    }
+
+    // Use 'private' as default write community for SNMP SET operations
+    const community = 'private';
+
+    const result = await resetPoE(device.ip, port, community, 3000);
+
+    if (result.success) {
+      // Log the action
+      const camera = db.prepare('SELECT name FROM devices WHERE parent_device_id = ? AND port_number = ?').get(switchId, port);
+      const cameraName = camera ? camera.name : `Port ${port}`;
+
+      addEventLog({
+        device_id: switchId,
+        device_name: device.name,
+        device_ip: device.ip,
+        event_type: 'info',
+        message: `PoE перезагружен на порту ${port} (${cameraName})`
+      });
+
+      // Notify renderer about the reset
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('poe-reset', {
+          switch_id: switchId,
+          port: port,
+          camera_name: cameraName
+        });
+      }
+    }
+
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ Camera Snapshot with Digest Auth ============
+const http = require('http');
+const crypto = require('crypto');
+
+/**
+ * Fetch camera snapshot with Digest Authentication support
+ * @param {string} url - Snapshot URL
+ * @param {string} username - Camera username
+ * @param {string} password - Camera password
+ * @returns {Promise<{success: boolean, data?: string, error?: string}>}
+ */
+async function fetchCameraSnapshot(url, username, password) {
+  return new Promise((resolve) => {
+    logInfo('Camera', `Fetching snapshot from ${url.replace(/\/\/[^@]+@/, '//***:***@')}`);
+
+    // Parse URL to get components
+    const urlObj = new URL(url.replace(/\/\/[^:]+:[^@]+@/, '//'));
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 80,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      timeout: 10000
+    };
+
+    // First request to get WWW-Authenticate header
+    const req = http.request(options, (res) => {
+      if (res.statusCode === 401 && res.headers['www-authenticate']) {
+        // Digest Auth required
+        const authHeader = res.headers['www-authenticate'];
+        logDebug('Camera', `Got 401, auth header: ${authHeader}`);
+
+        if (authHeader.toLowerCase().startsWith('digest')) {
+          // Parse Digest challenge
+          const challenge = parseDigestChallenge(authHeader);
+          const digestAuth = createDigestAuth(username, password, 'GET', options.path, challenge);
+
+          // Second request with Digest Auth
+          const authOptions = { ...options, headers: { 'Authorization': digestAuth } };
+
+          const authReq = http.request(authOptions, (authRes) => {
+            if (authRes.statusCode === 200) {
+              const chunks = [];
+              authRes.on('data', chunk => chunks.push(chunk));
+              authRes.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                const base64 = buffer.toString('base64');
+                const contentType = authRes.headers['content-type'] || 'image/jpeg';
+                logInfo('Camera', `Snapshot received: ${buffer.length} bytes`);
+                resolve({
+                  success: true,
+                  data: `data:${contentType};base64,${base64}`
+                });
+              });
+            } else {
+              logError('Camera', `Auth request failed: ${authRes.statusCode}`);
+              resolve({ success: false, error: `HTTP ${authRes.statusCode}` });
+            }
+          });
+
+          authReq.on('error', (e) => {
+            logError('Camera', `Auth request error: ${e.message}`);
+            resolve({ success: false, error: e.message });
+          });
+
+          authReq.on('timeout', () => {
+            authReq.destroy();
+            resolve({ success: false, error: 'Request timeout' });
+          });
+
+          authReq.end();
+        } else if (authHeader.toLowerCase().startsWith('basic')) {
+          // Basic Auth
+          const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
+          const authOptions = { ...options, headers: { 'Authorization': `Basic ${basicAuth}` } };
+
+          const authReq = http.request(authOptions, (authRes) => {
+            if (authRes.statusCode === 200) {
+              const chunks = [];
+              authRes.on('data', chunk => chunks.push(chunk));
+              authRes.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                const base64 = buffer.toString('base64');
+                const contentType = authRes.headers['content-type'] || 'image/jpeg';
+                resolve({
+                  success: true,
+                  data: `data:${contentType};base64,${base64}`
+                });
+              });
+            } else {
+              resolve({ success: false, error: `HTTP ${authRes.statusCode}` });
+            }
+          });
+
+          authReq.on('error', (e) => resolve({ success: false, error: e.message }));
+          authReq.end();
+        } else {
+          resolve({ success: false, error: 'Unknown auth type' });
+        }
+
+        // Consume the 401 response body
+        res.resume();
+      } else if (res.statusCode === 200) {
+        // No auth required - direct access
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          const base64 = buffer.toString('base64');
+          const contentType = res.headers['content-type'] || 'image/jpeg';
+          resolve({
+            success: true,
+            data: `data:${contentType};base64,${base64}`
+          });
+        });
+      } else {
+        logError('Camera', `Initial request failed: ${res.statusCode}`);
+        resolve({ success: false, error: `HTTP ${res.statusCode}` });
+        res.resume();
+      }
+    });
+
+    req.on('error', (e) => {
+      logError('Camera', `Request error: ${e.message}`);
+      resolve({ success: false, error: e.message });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ success: false, error: 'Request timeout' });
+    });
+
+    req.end();
+  });
+}
+
+function parseDigestChallenge(header) {
+  const challenge = {};
+  const regex = /(\w+)=(?:"([^"]+)"|([^,\s]+))/g;
+  let match;
+  while ((match = regex.exec(header)) !== null) {
+    challenge[match[1]] = match[2] || match[3];
+  }
+  return challenge;
+}
+
+function createDigestAuth(username, password, method, uri, challenge) {
+  const realm = challenge.realm || '';
+  const nonce = challenge.nonce || '';
+  const qop = challenge.qop || '';
+  const nc = '00000001';
+  const cnonce = crypto.randomBytes(8).toString('hex');
+
+  // Calculate HA1
+  const ha1 = crypto.createHash('md5')
+    .update(`${username}:${realm}:${password}`)
+    .digest('hex');
+
+  // Calculate HA2
+  const ha2 = crypto.createHash('md5')
+    .update(`${method}:${uri}`)
+    .digest('hex');
+
+  // Calculate response
+  let response;
+  if (qop) {
+    response = crypto.createHash('md5')
+      .update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
+      .digest('hex');
+  } else {
+    response = crypto.createHash('md5')
+      .update(`${ha1}:${nonce}:${ha2}`)
+      .digest('hex');
+  }
+
+  let authHeader = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
+
+  if (qop) {
+    authHeader += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+  }
+
+  if (challenge.opaque) {
+    authHeader += `, opaque="${challenge.opaque}"`;
+  }
+
+  return authHeader;
+}
+
+// IPC Handler for camera snapshot
+ipcMain.handle('camera:getSnapshot', async (_, url, username, password) => {
+  try {
+    return await fetchCameraSnapshot(url, username, password);
+  } catch (error) {
+    logError('Camera', `Exception in camera:getSnapshot: ${error.message}`);
     return { success: false, error: error.message };
   }
 });

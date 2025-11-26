@@ -24,6 +24,11 @@ interface ElectronAPI {
     getSNMPData: (ip: string, community: string) => Promise<any>;
     getStatus: () => Promise<any>;
   };
+  snmp: {
+    getPoEStatus: (switchId: number) => Promise<any>;
+    setPoE: (switchId: number, port: number, enabled: boolean) => Promise<any>;
+    resetPoE: (switchId: number, port: number) => Promise<any>;
+  };
   on: (channel: string, callback: (...args: any[]) => void) => void;
   removeListener: (channel: string, callback: (...args: any[]) => void) => void;
   settings: {
@@ -56,6 +61,9 @@ interface ElectronAPI {
     add: (template: any) => Promise<any>;
     update: (id: number, template: any) => Promise<any>;
     delete: (id: number) => Promise<any>;
+  };
+  camera: {
+    getSnapshot: (url: string, username: string, password: string) => Promise<any>;
   };
 }
 
@@ -562,6 +570,49 @@ const createLocalStorageAPI = (): ElectronAPI => {
         },
       }),
     },
+    snmp: {
+      getPoEStatus: async (switchId: number) => {
+        // Mock PoE status for browser testing
+        const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+        const switchDevice = devices.find((d: any) => d.id === switchId);
+        if (!switchDevice) {
+          return { success: false, error: 'Device not found' };
+        }
+
+        const portCount = switchDevice.port_count || 8;
+        const ports = [];
+        for (let i = 1; i <= portCount; i++) {
+          // Check if there's a camera on this port
+          const camera = devices.find((d: any) => d.parent_device_id === switchId && d.port_number === i);
+          ports.push({
+            port: i,
+            status: camera ? 'on' : 'off',
+            power: camera && camera.current_status === 'online' ? Math.round(Math.random() * 15 * 10) / 10 : 0,
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            ip: switchDevice.ip,
+            ports,
+            totalPorts: portCount
+          }
+        };
+      },
+      setPoE: async (switchId: number, port: number, enabled: boolean) => {
+        // Mock implementation - just log and return success
+        console.log(`[Mock SNMP] Set PoE on switch ${switchId} port ${port} to ${enabled ? 'ON' : 'OFF'}`);
+        return { success: true };
+      },
+      resetPoE: async (switchId: number, port: number) => {
+        // Mock implementation - simulate delay
+        console.log(`[Mock SNMP] Resetting PoE on switch ${switchId} port ${port}`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        console.log(`[Mock SNMP] PoE reset completed on switch ${switchId} port ${port}`);
+        return { success: true };
+      },
+    },
     on: (channel: string, callback: (...args: any[]) => void) => {
       if (!listeners[channel]) {
         listeners[channel] = [];
@@ -823,6 +874,13 @@ const createLocalStorageAPI = (): ElectronAPI => {
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
+      },
+    },
+    camera: {
+      getSnapshot: async (url: string, _username: string, _password: string) => {
+        // Mock implementation - can't fetch with auth in browser
+        console.log(`[Mock Camera] getSnapshot called for ${url}`);
+        return { success: false, error: 'Digest Auth not supported in browser mock' };
       },
     },
   };

@@ -11,7 +11,11 @@ import {
   Button,
   Collapse,
   Modal,
-  Select
+  Select,
+  Popover,
+  Switch,
+  message,
+  Divider
 } from 'antd';
 import {
   ReloadOutlined,
@@ -23,10 +27,20 @@ import {
   VideoCameraOutlined,
   ExpandOutlined,
   CompressOutlined,
-  EyeOutlined
+  EyeOutlined,
+  ThunderboltOutlined,
+  PoweroffOutlined,
+  SyncOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { Device } from '@shared/types';
+
+interface PoEPortStatus {
+  port: number;
+  status: 'on' | 'off' | 'unknown';
+  power: number;
+}
 
 interface SwitchWithCameras {
   switch: Device;
@@ -44,6 +58,11 @@ export const NetworkMap: React.FC = () => {
   const [monitorModalVisible, setMonitorModalVisible] = useState(false);
   const [monitoringSwitch, setMonitoringSwitch] = useState<SwitchWithCameras | null>(null);
   const [gridColumns, setGridColumns] = useState<number>(4); // Количество колонок в сетке
+
+  // PoE Control State
+  const [poeStatus, setPoeStatus] = useState<{ [switchId: number]: PoEPortStatus[] }>({});
+  const [poeLoading, setPoeLoading] = useState<{ [key: string]: boolean }>({});
+  const [activePopover, setActivePopover] = useState<string | null>(null);
 
   useEffect(() => {
     loadNetworkMap();
@@ -115,6 +134,102 @@ export const NetworkMap: React.FC = () => {
         ? { ...cam, current_status: data.status, last_response_time: data.response_time }
         : cam
     ));
+  };
+
+  // PoE Control Functions
+  const loadPoEStatus = async (switchId: number) => {
+    if (!api) return;
+
+    const key = `load-${switchId}`;
+    setPoeLoading(prev => ({ ...prev, [key]: true }));
+
+    console.log(`[PoE] Loading status for switch ID: ${switchId}`);
+
+    try {
+      const response = await api.snmp.getPoEStatus(switchId);
+      console.log(`[PoE] Response:`, response);
+
+      if (response.success) {
+        setPoeStatus(prev => ({
+          ...prev,
+          [switchId]: response.data.ports
+        }));
+        message.success('Статус PoE загружен');
+      } else {
+        console.error(`[PoE] Error:`, response.error);
+        message.error(`Ошибка SNMP: ${response.error}`);
+      }
+    } catch (error) {
+      console.error('Error loading PoE status:', error);
+      message.error('Ошибка загрузки статуса PoE');
+    } finally {
+      setPoeLoading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handlePoEToggle = async (switchId: number, port: number, currentState: boolean) => {
+    if (!api) return;
+
+    const key = `toggle-${switchId}-${port}`;
+    setPoeLoading(prev => ({ ...prev, [key]: true }));
+
+    try {
+      const response = await api.snmp.setPoE(switchId, port, !currentState);
+      if (response.success) {
+        message.success(`PoE ${!currentState ? 'включен' : 'выключен'} на порту ${port}`);
+        // Reload PoE status
+        await loadPoEStatus(switchId);
+      } else {
+        message.error(`Ошибка: ${response.error}`);
+      }
+    } catch (error) {
+      message.error('Ошибка SNMP соединения');
+    } finally {
+      setPoeLoading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handlePoEReset = async (switchId: number, port: number, cameraName?: string) => {
+    if (!api) return;
+
+    const key = `reset-${switchId}-${port}`;
+    setPoeLoading(prev => ({ ...prev, [key]: true }));
+
+    message.loading({
+      content: `Перезагрузка PoE на порту ${port}...`,
+      key: 'poe-reset',
+      duration: 0
+    });
+
+    try {
+      const response = await api.snmp.resetPoE(switchId, port);
+      if (response.success) {
+        message.success({
+          content: `PoE перезагружен на порту ${port}${cameraName ? ` (${cameraName})` : ''}`,
+          key: 'poe-reset'
+        });
+        // Reload PoE status
+        await loadPoEStatus(switchId);
+      } else {
+        message.error({
+          content: `Ошибка: ${response.error}`,
+          key: 'poe-reset'
+        });
+      }
+    } catch (error) {
+      message.error({
+        content: 'Ошибка SNMP соединения',
+        key: 'poe-reset'
+      });
+    } finally {
+      setPoeLoading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const getPortPoEStatus = (switchId: number, port: number): PoEPortStatus | undefined => {
+    const switchPoeStatus = poeStatus[switchId];
+    if (!switchPoeStatus) return undefined;
+    return switchPoeStatus.find(p => p.port === port);
   };
 
   const getStatusIcon = (status?: string) => {
@@ -290,69 +405,162 @@ export const NetworkMap: React.FC = () => {
     );
   };
 
+  // Check if switch supports PoE control (only TFortis for now)
+  const isTFortisSwitch = (sw: Device): boolean => {
+    return sw.vendor?.toLowerCase() === 'tfortis';
+  };
+
+  // PoE Control Popover Content
+  const renderPoEPopover = (sw: Device, port: number, camera?: Device) => {
+    const switchId = sw.id!;
+    const poePort = getPortPoEStatus(switchId, port);
+    const isToggleLoading = poeLoading[`toggle-${switchId}-${port}`];
+    const isResetLoading = poeLoading[`reset-${switchId}-${port}`];
+    const isLoadingStatus = poeLoading[`load-${switchId}`];
+    const supportsPoe = isTFortisSwitch(sw);
+
+    return (
+      <div style={{ width: 220 }}>
+        {camera ? (
+          <>
+            <div style={{ marginBottom: 8 }}>
+              <VideoCameraOutlined style={{ marginRight: 6, color: '#1890ff' }} />
+              <strong>{camera.name}</strong>
+            </div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 8 }}>
+              <div>IP: {camera.ip}</div>
+              <div>Статус: {camera.current_status === 'online' ? '🟢 В сети' : '🔴 Недоступно'}</div>
+              {camera.location && <div>Расположение: {camera.location}</div>}
+            </div>
+          </>
+        ) : (
+          <div style={{ marginBottom: 8, color: '#8c8c8c' }}>
+            Порт {port} - свободен
+          </div>
+        )}
+
+        {supportsPoe ? (
+          <>
+            <Divider style={{ margin: '8px 0' }} />
+
+            {/* PoE Status */}
+            <div style={{ marginBottom: 12 }}>
+              <ThunderboltOutlined style={{ marginRight: 6, color: '#faad14' }} />
+              <strong>PoE управление</strong>
+              {isLoadingStatus && <LoadingOutlined style={{ marginLeft: 8 }} spin />}
+            </div>
+
+            {poePort ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span>Статус:</span>
+                  <Tag color={poePort.status === 'on' ? 'green' : 'red'}>
+                    {poePort.status === 'on' ? 'Включен' : 'Выключен'}
+                  </Tag>
+                </div>
+                {poePort.power > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span>Мощность:</span>
+                    <Tag color="blue">{poePort.power} W</Tag>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button
+                    size="small"
+                    icon={isToggleLoading ? <LoadingOutlined spin /> : <PoweroffOutlined />}
+                    onClick={() => handlePoEToggle(switchId, port, poePort.status === 'on')}
+                    disabled={isToggleLoading || isResetLoading}
+                    danger={poePort.status === 'on'}
+                  >
+                    {poePort.status === 'on' ? 'Выкл' : 'Вкл'}
+                  </Button>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={isResetLoading ? <LoadingOutlined spin /> : <SyncOutlined />}
+                    onClick={() => handlePoEReset(switchId, port, camera?.name)}
+                    disabled={isToggleLoading || isResetLoading}
+                  >
+                    Перезагрузить
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <Button
+                  size="small"
+                  icon={isLoadingStatus ? <LoadingOutlined spin /> : <ReloadOutlined />}
+                  onClick={() => loadPoEStatus(switchId)}
+                  disabled={isLoadingStatus}
+                >
+                  Загрузить статус PoE
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c', fontStyle: 'italic' }}>
+            <ThunderboltOutlined style={{ marginRight: 4 }} />
+            PoE управление доступно только для TFortis
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderPortGrid = (sw: Device, cameras: Device[]) => {
     const portCount = sw.port_count || 8;
     const ports: React.ReactNode[] = [];
 
     for (let i = 1; i <= portCount; i++) {
       const camera = cameras.find(c => c.port_number === i);
+      const popoverKey = `${sw.id}-${i}`;
 
-      if (camera) {
-        ports.push(
-          <Tooltip
-            key={i}
-            title={
-              <div>
-                <div><strong>{camera.name}</strong></div>
-                <div>IP: {camera.ip}</div>
-                <div>Статус: {camera.current_status === 'online' ? 'В сети' : 'Недоступно'}</div>
-                {camera.location && <div>Расположение: {camera.location}</div>}
-              </div>
+      ports.push(
+        <Popover
+          key={i}
+          content={renderPoEPopover(sw, i, camera)}
+          title={`Порт ${i}`}
+          trigger="click"
+          open={activePopover === popoverKey}
+          onOpenChange={(open) => {
+            if (open) {
+              setActivePopover(popoverKey);
+              // Load PoE status when opening popover (only for TFortis)
+              if (isTFortisSwitch(sw) && !poeStatus[sw.id!]) {
+                loadPoEStatus(sw.id!);
+              }
+            } else {
+              setActivePopover(null);
             }
+          }}
+        >
+          <div
+            className={`port-slot ${camera ? 'occupied' : 'empty'} ${camera?.current_status || ''}`}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 4,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: 4,
+              cursor: 'pointer',
+              backgroundColor: camera
+                ? (camera.current_status === 'online' ? '#52c41a' :
+                   camera.current_status === 'offline' ? '#ff4d4f' : '#d9d9d9')
+                : 'transparent',
+              border: camera ? 'none' : '2px dashed #d9d9d9',
+              color: camera ? '#fff' : '#bfbfbf',
+              fontWeight: 'bold',
+              transition: 'all 0.2s'
+            }}
           >
-            <div
-              className={`port-slot occupied ${camera.current_status}`}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 4,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: 4,
-                cursor: 'pointer',
-                backgroundColor: camera.current_status === 'online' ? '#52c41a' :
-                  camera.current_status === 'offline' ? '#ff4d4f' : '#d9d9d9',
-                color: '#fff',
-                fontWeight: 'bold'
-              }}
-            >
-              {i}
-            </div>
-          </Tooltip>
-        );
-      } else {
-        ports.push(
-          <Tooltip key={i} title={`Порт ${i} - свободен`}>
-            <div
-              className="port-slot empty"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 4,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: 4,
-                border: '2px dashed #d9d9d9',
-                color: '#bfbfbf'
-              }}
-            >
-              {i}
-            </div>
-          </Tooltip>
-        );
-      }
+            {i}
+          </div>
+        </Popover>
+      );
     }
 
     return (

@@ -42,6 +42,7 @@ export const EventLog: React.FC = () => {
     searchText: '',
     dateRange: null as [dayjs.Dayjs, dayjs.Dayjs] | null,
   });
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     loadEvents();
@@ -319,9 +320,11 @@ export const EventLog: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={{
-            pageSize: 20,
+            pageSize: pageSize,
             showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total) => `Всего событий: ${total}`,
+            onShowSizeChange: (_, size) => setPageSize(size),
           }}
           locale={{
             emptyText: <Empty description="Нет событий" />,

@@ -594,3 +594,82 @@ body.dark-theme .ant-popover .ant-popover-container {
 body.dark-theme .ant-divider {
   border-color: #4b5563;
 }
+
+/* Dark theme - Pagination */
+body.dark-theme .ant-pagination {
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-pagination-item {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark-theme .ant-pagination-item a {
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-pagination-item:hover {
+  border-color: #60a5fa;
+}
+
+body.dark-theme .ant-pagination-item:hover a {
+  color: #60a5fa;
+}
+
+body.dark-theme .ant-pagination-item-active {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+body.dark-theme .ant-pagination-item-active a {
+  color: #fff;
+}
+
+body.dark-theme .ant-pagination-prev .ant-pagination-item-link,
+body.dark-theme .ant-pagination-next .ant-pagination-item-link {
+  background: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+body.dark-theme .ant-pagination-prev:hover .ant-pagination-item-link,
+body.dark-theme .ant-pagination-next:hover .ant-pagination-item-link {
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+body.dark-theme .ant-pagination-disabled .ant-pagination-item-link {
+  color: #6b7280;
+  background: #1f2937;
+  border-color: #374151;
+}
+
+body.dark-theme .ant-pagination-options .ant-select-selector {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-theme .ant-pagination-total-text {
+  color: #9ca3af;
+}
+
+/* Network Map scrollable container */
+.network-map-container {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Make Collapse inside NetworkMap scrollable */
+body.dark-theme .ant-collapse,
+.ant-collapse {
+  max-height: none;
+}
+
+/* Ensure table pagination is always visible */
+.ant-table-wrapper .ant-table-pagination {
+  margin: 16px 0;
+  padding: 8px 0;
+}

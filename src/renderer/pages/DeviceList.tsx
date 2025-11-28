@@ -76,6 +76,12 @@ export const DeviceList: React.FC = () => {
   // Поиск
   const [searchText, setSearchText] = useState('');
 
+  // Пагинация
+  const [pageSize, setPageSize] = useState(10);
+
+  // Фильтр по типу устройства
+  const [filterType, setFilterType] = useState<string>('all');
+
   // Динамические списки производителей в зависимости от типа
   const getVendorsByType = (type: string) => {
     switch (type) {
@@ -709,6 +715,19 @@ export const DeviceList: React.FC = () => {
         title="Управление устройствами"
         extra={
           <Space>
+            <Select
+              value={filterType}
+              onChange={setFilterType}
+              style={{ width: 150 }}
+              placeholder="Тип устройства"
+            >
+              <Option value="all">Все типы</Option>
+              <Option value="switch">Коммутаторы</Option>
+              <Option value="router">Маршрутизаторы</Option>
+              <Option value="camera">Камеры</Option>
+              <Option value="server">Серверы</Option>
+              <Option value="other">Другое</Option>
+            </Select>
             <Input
               placeholder="Поиск..."
               prefix={<SearchOutlined />}
@@ -725,10 +744,14 @@ export const DeviceList: React.FC = () => {
             </Button>
           </Space>
         }
+        styles={{ body: { maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
         <Table
           columns={columns}
           dataSource={devices.filter(device => {
+            // Фильтр по типу
+            if (filterType !== 'all' && device.type !== filterType) return false;
+            // Фильтр по поиску
             if (!searchText.trim()) return true;
             const search = searchText.toLowerCase();
             return device.name.toLowerCase().includes(search) ||
@@ -740,9 +763,11 @@ export const DeviceList: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={{
-            pageSize: 10,
+            pageSize: pageSize,
             showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total) => `Всего: ${total}`,
+            onShowSizeChange: (_, size) => setPageSize(size),
           }}
         />
       </Card>

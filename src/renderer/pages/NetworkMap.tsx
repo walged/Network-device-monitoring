@@ -984,6 +984,7 @@ export const NetworkMap: React.FC = () => {
             </Button>
           </div>
         }
+        styles={{ body: { maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
         <Spin spinning={loading}>
           {switchesWithCameras.length === 0 && unconnectedCameras.length === 0 ? (

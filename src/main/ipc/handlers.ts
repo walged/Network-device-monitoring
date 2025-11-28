@@ -396,6 +396,12 @@ export class IPCHandlers {
     });
 
     this.monitoring.on('status-changed', (data) => {
+      // Отправляем уведомление только если мониторинг активен
+      const monitoringStatus = this.monitoring.getStatus();
+      if (!monitoringStatus.isRunning) {
+        return; // Не отправляем уведомления если мониторинг выключен
+      }
+
       const windows = require('electron').BrowserWindow.getAllWindows();
       windows.forEach((window: any) => {
         window.webContents.send('alert', data);

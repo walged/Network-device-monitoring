@@ -10,17 +10,42 @@ export class MonitoringService extends EventEmitter {
   private monitoringInterval: NodeJS.Timeout | null = null;
   private deviceTimers: Map<number, NodeJS.Timeout> = new Map();
   private isRunning: boolean = false;
+  private isInitialCheck: boolean = true; // Флаг первой проверки - не отправлять уведомления
+  private failureCounters: Map<number, number> = new Map(); // Счётчики неудачных попыток для ретраев
+  private alertThreshold: number = 3; // Количество неудачных попыток до уведомления
 
   constructor(database: DatabaseService) {
     super();
     this.db = database;
+    // Загружаем порог из настроек
+    this.loadAlertThreshold();
+  }
+
+  private loadAlertThreshold() {
+    try {
+      const threshold = this.db.getSetting('alert_threshold');
+      if (threshold) {
+        this.alertThreshold = parseInt(threshold) || 3;
+      }
+    } catch (error) {
+      console.log('Using default alert threshold:', this.alertThreshold);
+    }
   }
 
   start() {
     if (this.isRunning) return;
 
     this.isRunning = true;
+    this.isInitialCheck = true; // Сбрасываем флаг первой проверки
+    this.failureCounters.clear(); // Сбрасываем счётчики ошибок
+    this.loadAlertThreshold(); // Перезагружаем порог из настроек
     this.startMonitoringCycle();
+
+    // Снимаем флаг первой проверки через 5 секунд (после первого цикла проверок)
+    setTimeout(() => {
+      this.isInitialCheck = false;
+    }, 5000);
+
     this.emit('monitoring-started');
   }
 
@@ -52,6 +77,9 @@ export class MonitoringService extends EventEmitter {
 
   private startDeviceMonitoring(device: Device) {
     if (!device.id) return;
+
+    // Не запускаем мониторинг если сервис не активен
+    if (!this.isRunning) return;
 
     // Если уже есть таймер для этого устройства, очищаем его
     const existingTimer = this.deviceTimers.get(device.id);
@@ -92,6 +120,9 @@ export class MonitoringService extends EventEmitter {
         status.response_time = pingResult.time !== undefined ? Math.round(pingResult.time) : 0;
         status.packet_loss = 0;
 
+        // Сбрасываем счётчик ошибок при успешном пинге
+        this.failureCounters.set(device.id, 0);
+
         // Если устройство онлайн и это коммутатор, пробуем получить SNMP данные
         if (device.type === 'switch' && device.snmp_community) {
           try {
@@ -104,17 +135,24 @@ export class MonitoringService extends EventEmitter {
       } else {
         status.status = 'offline';
         status.packet_loss = 100;
+
+        // Увеличиваем счётчик ошибок
+        const currentFailures = (this.failureCounters.get(device.id) || 0) + 1;
+        this.failureCounters.set(device.id, currentFailures);
       }
 
       // Сохраняем статус в БД
       this.db.addDeviceStatus(device.id, status);
 
-      // Проверяем, изменился ли статус
+      // Проверяем, изменился ли статус и нужно ли отправлять уведомление
       if (device.current_status !== status.status) {
-        this.handleStatusChange(device, status.status);
+        const shouldNotify = this.shouldSendNotification(device.id, status.status);
+        if (shouldNotify) {
+          this.handleStatusChange(device, status.status);
+        }
       }
 
-      // Отправляем событие обновления
+      // Отправляем событие обновления (всегда, для обновления UI)
       this.emit('device-status-update', {
         device_id: device.id,
         status: status.status,
@@ -138,6 +176,28 @@ export class MonitoringService extends EventEmitter {
         status: 'unknown'
       });
     }
+  }
+
+  // Проверяем, нужно ли отправлять уведомление
+  private shouldSendNotification(deviceId: number, newStatus: string): boolean {
+    // Не отправляем уведомления при первой проверке
+    if (this.isInitialCheck) {
+      return false;
+    }
+
+    // Если устройство стало онлайн - уведомляем сразу
+    if (newStatus === 'online') {
+      return true;
+    }
+
+    // Если устройство оффлайн - проверяем порог ошибок
+    if (newStatus === 'offline') {
+      const failures = this.failureCounters.get(deviceId) || 0;
+      // Отправляем уведомление только после достижения порога
+      return failures >= this.alertThreshold;
+    }
+
+    return false;
   }
 
   private handleStatusChange(device: Device, newStatus: string) {

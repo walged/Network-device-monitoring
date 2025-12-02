@@ -25,7 +25,7 @@ export const About: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 16px' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 16px', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', overflowX: 'hidden' }}>
       {/* Заголовок */}
       <div style={{ textAlign: 'center', marginBottom: 20, padding: '16px 0' }}>
         <Title level={2} style={{ marginBottom: 4, fontSize: 28 }}>
@@ -34,7 +34,7 @@ export const About: React.FC = () => {
         <Text type="secondary" style={{ fontSize: 16 }}>SCC</Text>
         <div style={{ marginTop: 12 }}>
           <Tag color="blue" style={{ fontSize: 13 }}>
-            {t.about.version} 1.0.0
+            {t.about.version} 2.1.1
           </Tag>
         </div>
       </div>

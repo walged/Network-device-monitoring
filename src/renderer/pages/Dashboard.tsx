@@ -174,7 +174,7 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div>
+    <div style={{ maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', overflowX: 'hidden', paddingRight: '8px' }}>
       <h1 style={{ marginBottom: '24px' }}>Панель управления</h1>
 
       <Row gutter={[16, 16]}>

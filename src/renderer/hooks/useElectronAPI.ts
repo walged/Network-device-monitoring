@@ -43,6 +43,8 @@ interface ElectronAPI {
     importData: (data: any) => Promise<any>;
     openUrl: (url: string) => Promise<any>;
     playSound: () => Promise<any>;
+    openTerminal: (command: string) => Promise<any>;
+    resetApplication: () => Promise<any>;
   };
   maps: {
     getAll: () => Promise<any>;
@@ -710,6 +712,19 @@ const createLocalStorageAPI = (): ElectronAPI => {
           await audio.play();
         } catch (error) {
           console.log('Sound play error:', error);
+        }
+        return { success: true };
+      },
+      openTerminal: async (command: string) => {
+        // In browser mode, show alert
+        alert(`Terminal command: ${command}`);
+        return { success: true };
+      },
+      resetApplication: async () => {
+        // In browser mode, clear all localStorage
+        if (confirm('Удалить все данные приложения? Это действие необратимо!')) {
+          localStorage.clear();
+          alert('Данные удалены. Обновите страницу.');
         }
         return { success: true };
       },

@@ -13,7 +13,9 @@ import {
   Alert,
   Row,
   Col,
-  Radio
+  Radio,
+  Modal,
+  Checkbox
 } from 'antd';
 import {
   SaveOutlined,
@@ -24,7 +26,9 @@ import {
   ImportOutlined,
   ExportOutlined,
   SoundOutlined,
-  KeyOutlined
+  KeyOutlined,
+  DeleteOutlined,
+  WarningOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { useLanguage, Language } from '../i18n';
@@ -39,6 +43,8 @@ export const Settings: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<Record<string, any>>({});
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetConfirmed, setResetConfirmed] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -168,9 +174,20 @@ export const Settings: React.FC = () => {
     message.info(t.settings.resetDone);
   };
 
+  const handleResetApplication = async () => {
+    if (!api || !resetConfirmed) return;
+
+    try {
+      await api.system.resetApplication();
+      // Приложение закроется автоматически
+    } catch (error) {
+      message.error('Ошибка при удалении данных');
+    }
+  };
+
   return (
     <div>
-      <Card title={t.settings.title}>
+      <Card title={t.settings.title} styles={{ body: { maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', overflowX: 'hidden' } }}>
         <Form
           form={form}
           layout="vertical"
@@ -446,8 +463,107 @@ export const Settings: React.FC = () => {
               {t.settings.reset}
             </Button>
           </Space>
+
+          <Divider />
+
+          <Alert
+            message={language === 'ru' ? 'Опасная зона' : 'Danger Zone'}
+            description={
+              <div>
+                <p>{language === 'ru'
+                  ? 'Полное удаление всех данных приложения. Это действие необратимо!'
+                  : 'Complete deletion of all application data. This action is irreversible!'
+                }</p>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => {
+                    setResetConfirmed(false);
+                    setResetModalVisible(true);
+                  }}
+                >
+                  {language === 'ru' ? 'Полное удаление данных' : 'Complete Data Reset'}
+                </Button>
+              </div>
+            }
+            type="error"
+            showIcon
+            icon={<WarningOutlined />}
+          />
         </Form>
       </Card>
+
+      <Modal
+        title={
+          <div style={{ color: '#ff4d4f' }}>
+            <WarningOutlined style={{ marginRight: 8 }} />
+            {language === 'ru' ? 'Подтверждение удаления' : 'Confirm Deletion'}
+          </div>
+        }
+        open={resetModalVisible}
+        onCancel={() => {
+          setResetModalVisible(false);
+          setResetConfirmed(false);
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => {
+            setResetModalVisible(false);
+            setResetConfirmed(false);
+          }}>
+            {language === 'ru' ? 'Отмена' : 'Cancel'}
+          </Button>,
+          <Button
+            key="delete"
+            type="primary"
+            danger
+            disabled={!resetConfirmed}
+            onClick={handleResetApplication}
+            icon={<DeleteOutlined />}
+          >
+            {language === 'ru' ? 'Удалить всё и закрыть приложение' : 'Delete All & Close App'}
+          </Button>
+        ]}
+      >
+        <Alert
+          message={language === 'ru' ? 'ВНИМАНИЕ!' : 'WARNING!'}
+          description={
+            <div>
+              <p><strong>{language === 'ru'
+                ? 'Это действие удалит ВСЕ данные приложения:'
+                : 'This action will delete ALL application data:'
+              }</strong></p>
+              <ul>
+                <li>{language === 'ru' ? 'Все устройства и их настройки' : 'All devices and their settings'}</li>
+                <li>{language === 'ru' ? 'Историю мониторинга' : 'Monitoring history'}</li>
+                <li>{language === 'ru' ? 'Журнал событий' : 'Event log'}</li>
+                <li>{language === 'ru' ? 'Пользовательские настройки' : 'User settings'}</li>
+                <li>{language === 'ru' ? 'Шаблоны учетных данных' : 'Credential templates'}</li>
+              </ul>
+              <p style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
+                {language === 'ru'
+                  ? 'Это действие НЕОБРАТИМО! Восстановить данные будет невозможно.'
+                  : 'This action is IRREVERSIBLE! Data recovery will be impossible.'
+                }
+              </p>
+            </div>
+          }
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+
+        <Checkbox
+          checked={resetConfirmed}
+          onChange={(e) => setResetConfirmed(e.target.checked)}
+        >
+          <span style={{ fontWeight: 'bold' }}>
+            {language === 'ru'
+              ? 'Я понимаю последствия и хочу удалить все данные'
+              : 'I understand the consequences and want to delete all data'
+            }
+          </span>
+        </Checkbox>
+      </Modal>
     </div>
   );
 };

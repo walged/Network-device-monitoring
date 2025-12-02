@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     exportData: (format: string) => ipcRenderer.invoke('system:export', format),
     importData: (data: any) => ipcRenderer.invoke('system:import', data),
     playSound: () => ipcRenderer.invoke('system:playSound'),
+    openTerminal: (command: string) => ipcRenderer.invoke('system:openTerminal', command),
+    resetApplication: () => ipcRenderer.invoke('system:resetApplication'),
   },
 
   // Камеры

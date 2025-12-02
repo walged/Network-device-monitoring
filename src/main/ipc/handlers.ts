@@ -265,6 +265,47 @@ export class IPCHandlers {
       }
     });
 
+    ipcMain.handle('system:openTerminal', async (_, command: string) => {
+      try {
+        const { spawn } = require('child_process');
+        // Открываем cmd с командой и оставляем окно открытым (/K)
+        spawn('cmd.exe', ['/K', command], {
+          detached: true,
+          stdio: 'ignore'
+        }).unref();
+        return { success: true } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('system:resetApplication', async () => {
+      try {
+        // 1. Остановить мониторинг
+        this.monitoring.stop();
+
+        // 2. Закрыть базу данных
+        await this.db.close();
+
+        // 3. Удалить файл базы данных
+        const dbPath = path.join(app.getPath('userData'), 'network-monitor.db');
+        try {
+          await fs.unlink(dbPath);
+        } catch (error) {
+          console.error('Error deleting database file:', error);
+        }
+
+        // 4. Небольшая задержка перед закрытием
+        setTimeout(() => {
+          app.quit();
+        }, 500);
+
+        return { success: true } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
     // Подписка на события мониторинга
     this.setupMonitoringEvents();
 

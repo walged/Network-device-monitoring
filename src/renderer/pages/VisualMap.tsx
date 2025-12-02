@@ -31,7 +31,9 @@ import {
   QuestionOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  DragOutlined
+  DragOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { Device } from '@shared/types';
@@ -74,6 +76,13 @@ export const VisualMap: React.FC = () => {
   const [draggingDevice, setDraggingDevice] = useState<DeviceOnMap | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
+  // Zoom state
+  const [zoom, setZoom] = useState(1);
+  const [imageNaturalSize, setImageNaturalSize] = useState({ width: 800, height: 600 });
+
+  // Ref для контейнера карты (для wheel event)
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     loadMaps();
     loadAllDevices();
@@ -86,6 +95,7 @@ export const VisualMap: React.FC = () => {
       setSelectedMap(null);
       setMapImage(null);
       setDevicesOnMap([]);
+      setZoom(1);
     }
   }, [selectedMapId]);
 
@@ -136,9 +146,16 @@ export const VisualMap: React.FC = () => {
           const imageResponse = await api.maps.getImage(mapResponse.data.image_path);
           if (imageResponse.success) {
             setMapImage(imageResponse.data);
+            // Загружаем изображение для определения его размеров
+            const img = new Image();
+            img.onload = () => {
+              setImageNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+            };
+            img.src = `data:image/jpeg;base64,${imageResponse.data}`;
           }
         } else {
           setMapImage(null);
+          setImageNaturalSize({ width: 800, height: 600 });
         }
       }
 
@@ -234,6 +251,37 @@ export const VisualMap: React.FC = () => {
     }
   };
 
+  // Zoom handlers
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 0.25, 0.25));
+  };
+
+  const handleZoomReset = () => {
+    setZoom(1);
+  };
+
+  // Обработчик колесика мыши с passive: false
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom(prev => Math.min(prev + 0.25, 3));
+      } else {
+        setZoom(prev => Math.max(prev - 0.25, 0.25));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // Drag and drop handlers с использованием refs для доступа к актуальным значениям
   const draggingDeviceRef = useRef<DeviceOnMap | null>(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
@@ -251,8 +299,8 @@ export const VisualMap: React.FC = () => {
     if (!rect) return;
 
     const offset = {
-      x: e.clientX - rect.left - (device.map_x || 0),
-      y: e.clientY - rect.top - (device.map_y || 0)
+      x: e.clientX - rect.left - (device.map_x || 0) * zoom,
+      y: e.clientY - rect.top - (device.map_y || 0) * zoom
     };
 
     setDraggingDevice(device);
@@ -264,15 +312,15 @@ export const VisualMap: React.FC = () => {
   // Используем document-level события для надежного перетаскивания
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!draggingDeviceRef.current || !canvasRef.current || !selectedMap) return;
+      if (!draggingDeviceRef.current || !canvasRef.current) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      let newX = e.clientX - rect.left - dragOffsetRef.current.x;
-      let newY = e.clientY - rect.top - dragOffsetRef.current.y;
+      let newX = (e.clientX - rect.left - dragOffsetRef.current.x) / zoom;
+      let newY = (e.clientY - rect.top - dragOffsetRef.current.y) / zoom;
 
       // Ограничиваем координаты
-      newX = Math.max(0, Math.min(selectedMap.width - 40, newX));
-      newY = Math.max(0, Math.min(selectedMap.height - 40, newY));
+      newX = Math.max(0, Math.min(imageNaturalSize.width - 40, newX));
+      newY = Math.max(0, Math.min(imageNaturalSize.height - 40, newY));
 
       // Обновляем позицию в state для плавного перемещения
       setDevicesOnMap(prev => prev.map(d =>
@@ -307,7 +355,7 @@ export const VisualMap: React.FC = () => {
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [api, selectedMapId, selectedMap]);
+  }, [api, selectedMapId, zoom, imageNaturalSize]);
 
   const getDeviceIcon = (type: string) => {
     switch (type) {
@@ -345,13 +393,13 @@ export const VisualMap: React.FC = () => {
           lines.push(
             <line
               key={`line-${device.id}`}
-              x1={parentSwitch.map_x + 20}
-              y1={parentSwitch.map_y + 20}
-              x2={device.map_x + 20}
-              y2={device.map_y + 20}
+              x1={(parentSwitch.map_x + 20) * zoom}
+              y1={(parentSwitch.map_y + 20) * zoom}
+              x2={(device.map_x + 20) * zoom}
+              y2={(device.map_y + 20) * zoom}
               stroke={color}
-              strokeWidth={2}
-              strokeDasharray={device.current_status === 'offline' ? '5,5' : undefined}
+              strokeWidth={2 * zoom}
+              strokeDasharray={device.current_status === 'offline' ? `${5 * zoom},${5 * zoom}` : undefined}
             />
           );
         }
@@ -421,6 +469,13 @@ export const VisualMap: React.FC = () => {
             }}>
               Обновить
             </Button>
+            {selectedMap && (
+              <>
+                <Button icon={<ZoomOutOutlined />} onClick={handleZoomOut} disabled={zoom <= 0.25} />
+                <Button onClick={handleZoomReset}>{Math.round(zoom * 100)}%</Button>
+                <Button icon={<ZoomInOutlined />} onClick={handleZoomIn} disabled={zoom >= 3} />
+              </>
+            )}
           </Space>
         }
       >
@@ -431,9 +486,9 @@ export const VisualMap: React.FC = () => {
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             />
           ) : (
-            <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 16, maxHeight: 'calc(100vh - 250px)' }}>
               {/* Панель устройств */}
-              <div style={{ width: 250, flexShrink: 0 }}>
+              <div style={{ width: 250, flexShrink: 0, overflow: 'auto' }}>
                 <Card size="small" title="Устройства на карте" style={{ marginBottom: 16 }}>
                   <List
                     size="small"
@@ -499,24 +554,31 @@ export const VisualMap: React.FC = () => {
 
               {/* Область карты */}
               <div
-                ref={canvasRef}
+                ref={mapContainerRef}
                 style={{
                   flex: 1,
                   position: 'relative',
-                  width: selectedMap.width,
-                  height: selectedMap.height,
-                  minHeight: 400,
+                  overflow: 'auto',
                   border: '1px solid #d9d9d9',
                   borderRadius: 8,
-                  backgroundColor: mapImage ? 'transparent' : '#f5f5f5',
-                  backgroundImage: mapImage ? `url(${mapImage})` : undefined,
-                  backgroundSize: 'contain',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center',
-                  overflow: 'hidden',
-                  cursor: draggingDevice ? 'grabbing' : 'default'
+                  backgroundColor: '#f5f5f5'
                 }}
               >
+                <div
+                  ref={canvasRef}
+                  style={{
+                    position: 'relative',
+                    width: imageNaturalSize.width * zoom,
+                    height: imageNaturalSize.height * zoom,
+                    minWidth: 400,
+                    minHeight: 400,
+                    backgroundImage: (mapImage && mapImage !== 'null' && mapImage.length > 0) ? `url(data:image/jpeg;base64,${mapImage})` : undefined,
+                    backgroundSize: `${imageNaturalSize.width * zoom}px ${imageNaturalSize.height * zoom}px`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'top left',
+                    cursor: draggingDevice ? 'grabbing' : 'default'
+                  }}
+                >
                 {/* SVG для линий связи */}
                 <svg
                   style={{
@@ -550,17 +612,17 @@ export const VisualMap: React.FC = () => {
                     <div
                       style={{
                         position: 'absolute',
-                        left: device.map_x || 0,
-                        top: device.map_y || 0,
-                        width: 40,
-                        height: 40,
-                        borderRadius: 8,
+                        left: (device.map_x || 0) * zoom,
+                        top: (device.map_y || 0) * zoom,
+                        width: 40 * zoom,
+                        height: 40 * zoom,
+                        borderRadius: 8 * zoom,
                         backgroundColor: getStatusColor(device.current_status),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: '#fff',
-                        fontSize: 20,
+                        fontSize: 20 * zoom,
                         cursor: 'grab',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                         transition: draggingDevice?.id === device.id ? 'none' : 'box-shadow 0.2s',
@@ -587,6 +649,7 @@ export const VisualMap: React.FC = () => {
                     <div>Загрузите план здания и добавьте устройства</div>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
@@ -618,16 +681,12 @@ export const VisualMap: React.FC = () => {
             <Input placeholder="Этаж 1" />
           </Form.Item>
 
-          <Form.Item label="Размер карты">
-            <Space>
-              <Form.Item name="width" noStyle>
-                <InputNumber min={400} max={2000} addonAfter="px" placeholder="Ширина" />
-              </Form.Item>
-              <span>×</span>
-              <Form.Item name="height" noStyle>
-                <InputNumber min={300} max={1500} addonAfter="px" placeholder="Высота" />
-              </Form.Item>
-            </Space>
+          <Form.Item name="width" noStyle initialValue={800}>
+            <Input type="hidden" />
+          </Form.Item>
+
+          <Form.Item name="height" noStyle initialValue={600}>
+            <Input type="hidden" />
           </Form.Item>
 
           <Form.Item>

@@ -167,6 +167,7 @@ export const CredentialTemplates: React.FC = () => {
           {t.settings.addCredential}
         </Button>
       }
+      styles={{ body: { maxHeight: 'calc(100vh - 350px)', overflowY: 'auto', overflowX: 'hidden' } }}
     >
       <Table
         dataSource={templates}

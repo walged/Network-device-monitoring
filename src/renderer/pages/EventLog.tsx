@@ -22,7 +22,8 @@ import {
   SearchOutlined,
   ClearOutlined,
   ExportOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  CodeOutlined
 } from '@ant-design/icons';
 import { useElectronAPI } from '../hooks/useElectronAPI';
 import { EventLog as EventLogType } from '@shared/types';
@@ -189,6 +190,12 @@ export const EventLog: React.FC = () => {
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
+  const handlePing = async (ip: string) => {
+    if (!api) return;
+    await api.system.openTerminal(`ping ${ip} -t`);
+    message.success(`Открыт терминал с пингом ${ip}`);
+  };
+
   const columns = [
     {
       title: '',
@@ -251,6 +258,24 @@ export const EventLog: React.FC = () => {
         </div>
       ),
     },
+    {
+      title: 'Действия',
+      key: 'actions',
+      width: 100,
+      render: (_: any, record: EventLogType) => (
+        record.device_ip ? (
+          <Button
+            type="text"
+            size="small"
+            icon={<CodeOutlined />}
+            onClick={() => handlePing(record.device_ip!)}
+            title="Открыть ping в терминале"
+          >
+            Ping
+          </Button>
+        ) : null
+      ),
+    },
   ];
 
   return (
@@ -270,6 +295,7 @@ export const EventLog: React.FC = () => {
             </Button>
           </Space>
         }
+        styles={{ body: { maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>

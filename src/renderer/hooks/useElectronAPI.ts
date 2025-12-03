@@ -53,8 +53,9 @@ interface ElectronAPI {
     update: (id: number, map: any) => Promise<any>;
     delete: (id: number) => Promise<any>;
     getDevices: (mapId: number) => Promise<any>;
-    updateDevicePosition: (deviceId: number, mapId: number, x: number, y: number) => Promise<any>;
-    removeDevice: (deviceId: number) => Promise<any>;
+    addDevice: (mapId: number, deviceId: number, x?: number, y?: number) => Promise<any>;
+    updateDevicePosition: (mapId: number, deviceId: number, x: number, y: number) => Promise<any>;
+    removeDevice: (mapId: number, deviceId: number) => Promise<any>;
     uploadImage: (mapId: number) => Promise<any>;
     getImage: (imagePath: string) => Promise<any>;
   };
@@ -801,7 +802,21 @@ const createLocalStorageAPI = (): ElectronAPI => {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       },
-      updateDevicePosition: async (deviceId: number, mapId: number, x: number, y: number) => {
+      addDevice: async (mapId: number, deviceId: number, x: number = 0, y: number = 0) => {
+        try {
+          const devices = JSON.parse(localStorage.getItem('devices') || '[]');
+          const index = devices.findIndex((d: any) => d.id === deviceId);
+          if (index !== -1) {
+            devices[index] = { ...devices[index], floor_map_id: mapId, map_x: x, map_y: y };
+            localStorage.setItem('devices', JSON.stringify(devices));
+            return { success: true, data: deviceId };
+          }
+          return { success: false, error: 'Device not found' };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+      updateDevicePosition: async (mapId: number, deviceId: number, x: number, y: number) => {
         try {
           const devices = JSON.parse(localStorage.getItem('devices') || '[]');
           const index = devices.findIndex((d: any) => d.id === deviceId);
@@ -815,16 +830,16 @@ const createLocalStorageAPI = (): ElectronAPI => {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       },
-      removeDevice: async (deviceId: number) => {
+      removeDevice: async (mapId: number, deviceId: number) => {
         try {
           const devices = JSON.parse(localStorage.getItem('devices') || '[]');
-          const index = devices.findIndex((d: any) => d.id === deviceId);
+          const index = devices.findIndex((d: any) => d.id === deviceId && d.floor_map_id === mapId);
           if (index !== -1) {
             devices[index] = { ...devices[index], floor_map_id: null, map_x: null, map_y: null };
             localStorage.setItem('devices', JSON.stringify(devices));
             return { success: true, data: true };
           }
-          return { success: false, error: 'Device not found' };
+          return { success: false, error: 'Device not found on this map' };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }

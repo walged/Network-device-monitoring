@@ -44,6 +44,7 @@ interface FloorMap {
   id: number;
   name: string;
   image_path?: string;
+  image_mime_type?: string;
   width: number;
   height: number;
 }
@@ -144,14 +145,35 @@ export const VisualMap: React.FC = () => {
         // Загружаем изображение если есть
         if (mapResponse.data.image_path) {
           const imageResponse = await api.maps.getImage(mapResponse.data.image_path);
-          if (imageResponse.success) {
+          // Проверяем что данные валидны (success=true И data не пустая И достаточная длина для base64)
+          if (imageResponse.success && imageResponse.data && imageResponse.data.length > 100) {
             setMapImage(imageResponse.data);
+
+            // Определяем MIME тип из данных карты или по умолчанию
+            const mimeType = mapResponse.data.image_mime_type || 'image/jpeg';
+
             // Загружаем изображение для определения его размеров
             const img = new Image();
             img.onload = () => {
-              setImageNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+              setImageNaturalSize({
+                width: img.naturalWidth || mapResponse.data.width || 800,
+                height: img.naturalHeight || mapResponse.data.height || 600
+              });
             };
-            img.src = `data:image/jpeg;base64,${imageResponse.data}`;
+            img.onerror = () => {
+              console.error('Failed to load map image');
+              setMapImage(null);
+              setImageNaturalSize({ width: 800, height: 600 });
+              message.error('Ошибка загрузки изображения карты');
+            };
+            img.src = `data:${mimeType};base64,${imageResponse.data}`;
+          } else {
+            console.warn('Invalid image data received');
+            setMapImage(null);
+            setImageNaturalSize({
+              width: mapResponse.data.width || 800,
+              height: mapResponse.data.height || 600
+            });
           }
         } else {
           setMapImage(null);
@@ -214,6 +236,11 @@ export const VisualMap: React.FC = () => {
       if (response.success) {
         message.success('Изображение загружено');
         loadMapDetails(selectedMapId);
+      } else {
+        // Если пользователь отменил выбор, не показываем ошибку
+        if (response.error && response.error !== 'Cancelled') {
+          message.error(response.error || 'Ошибка загрузки изображения');
+        }
       }
     } catch (error) {
       message.error('Ошибка загрузки изображения');
@@ -228,7 +255,7 @@ export const VisualMap: React.FC = () => {
     const y = Math.floor(selectedMap.height / 2);
 
     try {
-      await api.maps.updateDevicePosition(deviceId, selectedMapId, x, y);
+      await api.maps.addDevice(selectedMapId, deviceId, x, y);
       message.success('Устройство добавлено на карту');
       loadMapDetails(selectedMapId);
       loadAllDevices();
@@ -238,9 +265,9 @@ export const VisualMap: React.FC = () => {
   };
 
   const handleRemoveDeviceFromMap = async (deviceId: number) => {
-    if (!api) return;
+    if (!api || !selectedMapId) return;
     try {
-      await api.maps.removeDevice(deviceId);
+      await api.maps.removeDevice(selectedMapId, deviceId);
       message.success('Устройство удалено с карты');
       if (selectedMapId) {
         loadMapDetails(selectedMapId);
@@ -572,7 +599,7 @@ export const VisualMap: React.FC = () => {
                     height: imageNaturalSize.height * zoom,
                     minWidth: 400,
                     minHeight: 400,
-                    backgroundImage: (mapImage && mapImage !== 'null' && mapImage.length > 0) ? `url(data:image/jpeg;base64,${mapImage})` : undefined,
+                    backgroundImage: (mapImage && mapImage !== 'null' && mapImage.length > 0) ? `url(data:${selectedMap?.image_mime_type || 'image/jpeg'};base64,${mapImage})` : undefined,
                     backgroundSize: `${imageNaturalSize.width * zoom}px ${imageNaturalSize.height * zoom}px`,
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'top left',
@@ -587,7 +614,8 @@ export const VisualMap: React.FC = () => {
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    pointerEvents: 'none'
+                    pointerEvents: 'none',
+                    zIndex: 1
                   }}
                 >
                   {renderConnections()}
@@ -626,7 +654,7 @@ export const VisualMap: React.FC = () => {
                         cursor: 'grab',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                         transition: draggingDevice?.id === device.id ? 'none' : 'box-shadow 0.2s',
-                        zIndex: draggingDevice?.id === device.id ? 100 : 1
+                        zIndex: draggingDevice?.id === device.id ? 1000 : 10
                       }}
                       onMouseDown={(e) => handleMouseDown(e, device)}
                     >

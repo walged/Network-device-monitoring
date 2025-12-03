@@ -93,12 +93,44 @@ export class DatabaseService {
       );
     `);
 
+    // Таблица визуальных карт
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS floor_maps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        image_path TEXT,
+        image_mime_type TEXT DEFAULT 'image/jpeg',
+        width INTEGER DEFAULT 800,
+        height INTEGER DEFAULT 600,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Таблица устройств на картах
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS map_devices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        map_id INTEGER NOT NULL,
+        device_id INTEGER NOT NULL,
+        map_x REAL NOT NULL DEFAULT 0,
+        map_y REAL NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (map_id) REFERENCES floor_maps(id) ON DELETE CASCADE,
+        FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+        UNIQUE(map_id, device_id)
+      );
+    `);
+
     // Индексы для производительности
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_device_status_device_id ON device_status(device_id);
       CREATE INDEX IF NOT EXISTS idx_device_status_timestamp ON device_status(timestamp);
       CREATE INDEX IF NOT EXISTS idx_event_logs_device_id ON event_logs(device_id);
       CREATE INDEX IF NOT EXISTS idx_event_logs_timestamp ON event_logs(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_map_devices_map_id ON map_devices(map_id);
+      CREATE INDEX IF NOT EXISTS idx_map_devices_device_id ON map_devices(device_id);
     `);
   }
 
@@ -315,6 +347,129 @@ export class DatabaseService {
     }
 
     return result;
+  }
+
+  // ==================== Методы для работы с визуальными картами ====================
+
+  getAllMaps() {
+    if (!this.db) throw new Error('Database not initialized');
+    return this.db.prepare('SELECT * FROM floor_maps ORDER BY created_at DESC').all();
+  }
+
+  getMap(id: number) {
+    if (!this.db) throw new Error('Database not initialized');
+    return this.db.prepare('SELECT * FROM floor_maps WHERE id = ?').get(id);
+  }
+
+  addMap(map: { name: string; image_path?: string; image_mime_type?: string; width?: number; height?: number }) {
+    if (!this.db) throw new Error('Database not initialized');
+    const stmt = this.db.prepare(`
+      INSERT INTO floor_maps (name, image_path, image_mime_type, width, height)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      map.name,
+      map.image_path || null,
+      map.image_mime_type || 'image/jpeg',
+      map.width || 800,
+      map.height || 600
+    );
+    return result.lastInsertRowid;
+  }
+
+  updateMap(id: number, map: Partial<{ name: string; image_path: string; image_mime_type: string; width: number; height: number }>) {
+    if (!this.db) throw new Error('Database not initialized');
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (map.name !== undefined) {
+      fields.push('name = ?');
+      values.push(map.name);
+    }
+    if (map.image_path !== undefined) {
+      fields.push('image_path = ?');
+      values.push(map.image_path);
+    }
+    if (map.image_mime_type !== undefined) {
+      fields.push('image_mime_type = ?');
+      values.push(map.image_mime_type);
+    }
+    if (map.width !== undefined) {
+      fields.push('width = ?');
+      values.push(map.width);
+    }
+    if (map.height !== undefined) {
+      fields.push('height = ?');
+      values.push(map.height);
+    }
+
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const stmt = this.db.prepare(`UPDATE floor_maps SET ${fields.join(', ')} WHERE id = ?`);
+    const result = stmt.run(...values);
+    return result.changes > 0;
+  }
+
+  deleteMap(id: number) {
+    if (!this.db) throw new Error('Database not initialized');
+    const stmt = this.db.prepare('DELETE FROM floor_maps WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  // ==================== Методы для работы с устройствами на картах ====================
+
+  getMapDevices(mapId: number) {
+    if (!this.db) throw new Error('Database not initialized');
+    return this.db.prepare(`
+      SELECT md.*, d.name, d.ip, d.type, d.vendor, d.model, d.location,
+        (SELECT status FROM device_status WHERE device_id = d.id ORDER BY timestamp DESC LIMIT 1) as current_status,
+        (SELECT response_time FROM device_status WHERE device_id = d.id ORDER BY timestamp DESC LIMIT 1) as last_response_time,
+        parent.id as parent_device_id,
+        parent.name as parent_device_name
+      FROM map_devices md
+      JOIN devices d ON md.device_id = d.id
+      LEFT JOIN devices parent ON d.parent_device_id = parent.id
+      WHERE md.map_id = ?
+    `).all(mapId);
+  }
+
+  addDeviceToMap(mapId: number, deviceId: number, x: number = 0, y: number = 0) {
+    if (!this.db) throw new Error('Database not initialized');
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO map_devices (map_id, device_id, map_x, map_y)
+        VALUES (?, ?, ?, ?)
+      `);
+      const result = stmt.run(mapId, deviceId, x, y);
+      return result.lastInsertRowid;
+    } catch (error: any) {
+      if (error.message.includes('UNIQUE constraint')) {
+        throw new Error('Устройство уже добавлено на эту карту');
+      }
+      throw error;
+    }
+  }
+
+  updateDevicePosition(mapId: number, deviceId: number, x: number, y: number) {
+    if (!this.db) throw new Error('Database not initialized');
+    const stmt = this.db.prepare(`
+      UPDATE map_devices
+      SET map_x = ?, map_y = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE map_id = ? AND device_id = ?
+    `);
+    const result = stmt.run(x, y, mapId, deviceId);
+    return result.changes > 0;
+  }
+
+  removeDeviceFromMap(mapId: number, deviceId: number) {
+    if (!this.db) throw new Error('Database not initialized');
+    const stmt = this.db.prepare('DELETE FROM map_devices WHERE map_id = ? AND device_id = ?');
+    const result = stmt.run(mapId, deviceId);
+    return result.changes > 0;
   }
 
   // Закрытие БД

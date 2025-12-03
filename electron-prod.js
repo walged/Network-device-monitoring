@@ -230,9 +230,11 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       image_path TEXT,
+      image_mime_type TEXT DEFAULT 'image/jpeg',
       width INTEGER DEFAULT 800,
       height INTEGER DEFAULT 600,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS credential_templates (
@@ -289,6 +291,23 @@ function initDatabase() {
     }
   } catch (e) {
     console.log('Migration check completed');
+  }
+
+  // Миграция для floor_maps: добавляем новые поля
+  try {
+    const floorMapsInfo = db.prepare("PRAGMA table_info(floor_maps)").all();
+    const floorMapsColumns = floorMapsInfo.map(col => col.name);
+
+    if (!floorMapsColumns.includes('image_mime_type')) {
+      db.exec("ALTER TABLE floor_maps ADD COLUMN image_mime_type TEXT DEFAULT 'image/jpeg'");
+      console.log('Migration: added image_mime_type column to floor_maps');
+    }
+    if (!floorMapsColumns.includes('updated_at')) {
+      db.exec("ALTER TABLE floor_maps ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP");
+      console.log('Migration: added updated_at column to floor_maps');
+    }
+  } catch (e) {
+    console.log('Floor maps migration check completed');
   }
 
   // Default settings
@@ -526,6 +545,17 @@ function updateFloorMap(id, map) {
   }
 
   if (fields.length === 0) return false;
+
+  // Проверяем есть ли колонка updated_at
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(floor_maps)").all();
+    const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
+    if (hasUpdatedAt) {
+      fields.push(`updated_at = CURRENT_TIMESTAMP`);
+    }
+  } catch (e) {
+    // Игнорируем ошибку
+  }
 
   values.push(id);
   const stmt = db.prepare(`UPDATE floor_maps SET ${fields.join(', ')} WHERE id = ?`);
@@ -1752,6 +1782,15 @@ ipcMain.handle('maps:getDevices', async (_, mapId) => {
   }
 });
 
+ipcMain.handle('maps:addDevice', async (_, mapId, deviceId, x, y) => {
+  try {
+    const success = updateDevicePosition(deviceId, mapId, x, y);
+    return { success, data: success };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('maps:updateDevicePosition', async (_, deviceId, mapId, x, y) => {
   try {
     const success = updateDevicePosition(deviceId, mapId, x, y);
@@ -1761,7 +1800,7 @@ ipcMain.handle('maps:updateDevicePosition', async (_, deviceId, mapId, x, y) => 
   }
 });
 
-ipcMain.handle('maps:removeDevice', async (_, deviceId) => {
+ipcMain.handle('maps:removeDevice', async (_, mapId, deviceId) => {
   try {
     const success = removeDeviceFromMap(deviceId);
     return { success, data: success };
@@ -1773,35 +1812,74 @@ ipcMain.handle('maps:removeDevice', async (_, deviceId) => {
 // Загрузка изображения карты
 ipcMain.handle('maps:uploadImage', async (_, mapId) => {
   try {
-    const result = await dialog.showOpenDialog({
+    const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0], {
       properties: ['openFile'],
       filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
-      ]
+        { name: 'Все файлы', extensions: ['*'] }
+      ],
+      title: 'Выберите изображение карты'
     });
 
-    if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-      const selectedFile = result.filePaths[0];
-      const userDataPath = app.getPath('userData');
-      const mapsDir = path.join(userDataPath, 'maps');
-
-      // Создаем директорию если не существует
-      await fs.mkdir(mapsDir, { recursive: true });
-
-      // Копируем файл
-      const ext = path.extname(selectedFile);
-      const newFileName = `map_${mapId}_${Date.now()}${ext}`;
-      const destPath = path.join(mapsDir, newFileName);
-
-      await fs.copyFile(selectedFile, destPath);
-
-      // Обновляем путь в БД
-      updateFloorMap(mapId, { image_path: destPath });
-
-      return { success: true, data: destPath };
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, error: 'Cancelled' };
     }
 
-    return { success: false, error: 'Cancelled' };
+    const filePath = result.filePaths[0];
+    const fileName = path.basename(filePath);
+    const fileExt = path.extname(filePath).toLowerCase();
+
+    // Определяем MIME тип по расширению
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.bmp': 'image/bmp',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml'
+    };
+    const mimeType = mimeTypes[fileExt];
+
+    // Проверяем что это изображение
+    if (!mimeType) {
+      return { success: false, error: 'Выбранный файл не является изображением. Поддерживаются форматы: JPG, PNG, GIF, BMP, WEBP, SVG' };
+    }
+
+    // Создаем папку для изображений если не существует
+    const imagesDir = path.join(app.getPath('userData'), 'map-images');
+    if (!fsSync.existsSync(imagesDir)) {
+      fsSync.mkdirSync(imagesDir, { recursive: true });
+    }
+
+    // Копируем файл с уникальным именем
+    const destFileName = `map-${mapId}-${Date.now()}${fileExt}`;
+    const destPath = path.join(imagesDir, destFileName);
+    await fs.copyFile(filePath, destPath);
+
+    // Читаем размеры изображения
+    let width = 800;
+    let height = 600;
+
+    // Пробуем определить размер через sharp если доступен
+    try {
+      const sharp = require('sharp');
+      const metadata = await sharp(destPath).metadata();
+      width = metadata.width || 800;
+      height = metadata.height || 600;
+    } catch (e) {
+      // sharp не установлен, используем размеры по умолчанию
+      console.log('Sharp not available, using default dimensions');
+    }
+
+    // Обновляем карту с путем к изображению
+    updateFloorMap(mapId, {
+      image_path: destPath,
+      image_mime_type: mimeType,
+      width,
+      height
+    });
+
+    return { success: true, data: { path: destPath, mimeType, width, height } };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -1810,15 +1888,12 @@ ipcMain.handle('maps:uploadImage', async (_, mapId) => {
 // Читаем изображение карты как base64
 ipcMain.handle('maps:getImage', async (_, imagePath) => {
   try {
-    if (!imagePath) {
-      return { success: false, error: 'No image path' };
+    if (!imagePath || imagePath === 'null') {
+      return { success: false, error: 'No image path provided' };
     }
 
-    const imageBuffer = await fs.readFile(imagePath);
-    const ext = path.extname(imagePath).toLowerCase().slice(1);
-    const mimeType = ext === 'jpg' ? 'jpeg' : ext;
-    const base64 = `data:image/${mimeType};base64,${imageBuffer.toString('base64')}`;
-
+    const imageData = await fs.readFile(imagePath);
+    const base64 = imageData.toString('base64');
     return { success: true, data: base64 };
   } catch (error) {
     return { success: false, error: error.message };
@@ -2027,6 +2102,17 @@ ipcMain.handle('system:playSound', async () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('play-notification-sound');
     }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('system:openTerminal', async (_, command) => {
+  try {
+    const { spawn } = require('child_process');
+    // Open Windows terminal with command
+    spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', command]);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importData: (data) => ipcRenderer.invoke('system:import', data),
     openUrl: (url) => ipcRenderer.invoke('system:openUrl', url),
     playSound: () => ipcRenderer.invoke('system:playSound'),
+    openTerminal: (command) => ipcRenderer.invoke('system:openTerminal', command),
   },
 
   // Карты этажей
@@ -83,8 +84,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (id, map) => ipcRenderer.invoke('maps:update', id, map),
     delete: (id) => ipcRenderer.invoke('maps:delete', id),
     getDevices: (mapId) => ipcRenderer.invoke('maps:getDevices', mapId),
+    addDevice: (mapId, deviceId, x, y) => ipcRenderer.invoke('maps:addDevice', mapId, deviceId, x, y),
     updateDevicePosition: (deviceId, mapId, x, y) => ipcRenderer.invoke('maps:updateDevicePosition', deviceId, mapId, x, y),
-    removeDevice: (deviceId) => ipcRenderer.invoke('maps:removeDevice', deviceId),
+    removeDevice: (mapId, deviceId) => ipcRenderer.invoke('maps:removeDevice', mapId, deviceId),
     uploadImage: (mapId) => ipcRenderer.invoke('maps:uploadImage', mapId),
     getImage: (imagePath) => ipcRenderer.invoke('maps:getImage', imagePath),
   },

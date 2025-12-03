@@ -34,7 +34,7 @@ export const About: React.FC = () => {
         <Text type="secondary" style={{ fontSize: 16 }}>SCC</Text>
         <div style={{ marginTop: 12 }}>
           <Tag color="blue" style={{ fontSize: 13 }}>
-            {t.about.version} 2.1.1
+            {t.about.version} 2.4.0
           </Tag>
         </div>
       </div>

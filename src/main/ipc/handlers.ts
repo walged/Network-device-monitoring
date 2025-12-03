@@ -309,6 +309,186 @@ export class IPCHandlers {
     // Подписка на события мониторинга
     this.setupMonitoringEvents();
 
+    // Визуальные карты
+    ipcMain.handle('maps:getAll', async () => {
+      try {
+        const maps = this.db.getAllMaps();
+        return { success: true, data: maps } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:get', async (_, id: number) => {
+      try {
+        const map = this.db.getMap(id);
+        return { success: true, data: map } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:add', async (_, map: any) => {
+      try {
+        const id = this.db.addMap(map);
+        return { success: true, data: id } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:update', async (_, id: number, map: any) => {
+      try {
+        const success = this.db.updateMap(id, map);
+        return { success, data: success } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:delete', async (_, id: number) => {
+      try {
+        const success = this.db.deleteMap(id);
+        return { success, data: success } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    // Устройства на картах
+    ipcMain.handle('maps:getDevices', async (_, mapId: number) => {
+      try {
+        const devices = this.db.getMapDevices(mapId);
+        return { success: true, data: devices } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:addDevice', async (_, mapId: number, deviceId: number, x?: number, y?: number) => {
+      try {
+        const id = this.db.addDeviceToMap(mapId, deviceId, x, y);
+        return { success: true, data: id } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:updateDevicePosition', async (_, mapId: number, deviceId: number, x: number, y: number) => {
+      try {
+        const success = this.db.updateDevicePosition(mapId, deviceId, x, y);
+        return { success, data: success } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    ipcMain.handle('maps:removeDevice', async (_, mapId: number, deviceId: number) => {
+      try {
+        const success = this.db.removeDeviceFromMap(mapId, deviceId);
+        return { success, data: success } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    // Загрузка изображения карты
+    ipcMain.handle('maps:uploadImage', async (_, mapId: number) => {
+      try {
+        const { dialog, BrowserWindow } = require('electron');
+        const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0], {
+          properties: ['openFile'],
+          filters: [
+            { name: 'Все файлы', extensions: ['*'] }
+          ],
+          title: 'Выберите изображение карты'
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return { success: false, error: 'Cancelled' } as IPCResponse;
+        }
+
+        const filePath = result.filePaths[0];
+        const fileName = path.basename(filePath);
+        const fileExt = path.extname(filePath).toLowerCase();
+
+        // Определяем MIME тип по расширению
+        const mimeTypes: Record<string, string> = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.bmp': 'image/bmp',
+          '.webp': 'image/webp',
+          '.svg': 'image/svg+xml'
+        };
+        const mimeType = mimeTypes[fileExt];
+
+        // Проверяем что это изображение
+        if (!mimeType) {
+          return { success: false, error: 'Выбранный файл не является изображением. Поддерживаются форматы: JPG, PNG, GIF, BMP, WEBP, SVG' } as IPCResponse;
+        }
+
+        // Создаем папку для изображений если не существует
+        const imagesDir = path.join(app.getPath('userData'), 'map-images');
+        if (!require('fs').existsSync(imagesDir)) {
+          require('fs').mkdirSync(imagesDir, { recursive: true });
+        }
+
+        // Копируем файл с уникальным именем
+        const destFileName = `map-${mapId}-${Date.now()}${fileExt}`;
+        const destPath = path.join(imagesDir, destFileName);
+        await fs.copyFile(filePath, destPath);
+
+        // Читаем размеры изображения
+        const imageData = await fs.readFile(destPath);
+        const base64 = imageData.toString('base64');
+
+        // Создаем временный Image для определения размеров (через sharp или другую библиотеку)
+        // Для упрощения используем фиксированные размеры или читаем из metadata
+        let width = 800;
+        let height = 600;
+
+        // Пробуем определить размер через sharp если доступен
+        try {
+          const sharp = require('sharp');
+          const metadata = await sharp(destPath).metadata();
+          width = metadata.width || 800;
+          height = metadata.height || 600;
+        } catch (e) {
+          // sharp не установлен, используем размеры по умолчанию
+          console.log('Sharp not available, using default dimensions');
+        }
+
+        // Обновляем карту с путем к изображению
+        this.db.updateMap(mapId, {
+          image_path: destPath,
+          image_mime_type: mimeType,
+          width,
+          height
+        });
+
+        return { success: true, data: { path: destPath, mimeType, width, height } } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
+    // Получение изображения карты
+    ipcMain.handle('maps:getImage', async (_, imagePath: string) => {
+      try {
+        if (!imagePath || imagePath === 'null') {
+          return { success: false, error: 'No image path provided' } as IPCResponse;
+        }
+
+        const imageData = await fs.readFile(imagePath);
+        const base64 = imageData.toString('base64');
+        return { success: true, data: base64 } as IPCResponse;
+      } catch (error: any) {
+        return { success: false, error: error.message } as IPCResponse;
+      }
+    });
+
     // Камеры
     ipcMain.handle('camera:getSnapshot', async (_, url: string, username: string, password: string) => {
       try {

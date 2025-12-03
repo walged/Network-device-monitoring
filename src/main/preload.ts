@@ -56,5 +56,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   camera: {
     getSnapshot: (url: string, username: string, password: string) =>
       ipcRenderer.invoke('camera:getSnapshot', url, username, password),
+  },
+
+  // Визуальные карты
+  maps: {
+    getAll: () => ipcRenderer.invoke('maps:getAll'),
+    get: (id: number) => ipcRenderer.invoke('maps:get', id),
+    add: (map: any) => ipcRenderer.invoke('maps:add', map),
+    update: (id: number, map: any) => ipcRenderer.invoke('maps:update', id, map),
+    delete: (id: number) => ipcRenderer.invoke('maps:delete', id),
+    getDevices: (mapId: number) => ipcRenderer.invoke('maps:getDevices', mapId),
+    addDevice: (mapId: number, deviceId: number, x?: number, y?: number) =>
+      ipcRenderer.invoke('maps:addDevice', mapId, deviceId, x, y),
+    updateDevicePosition: (mapId: number, deviceId: number, x: number, y: number) =>
+      ipcRenderer.invoke('maps:updateDevicePosition', mapId, deviceId, x, y),
+    removeDevice: (mapId: number, deviceId: number) =>
+      ipcRenderer.invoke('maps:removeDevice', mapId, deviceId),
+    uploadImage: (mapId: number) => ipcRenderer.invoke('maps:uploadImage', mapId),
+    getImage: (imagePath: string) => ipcRenderer.invoke('maps:getImage', imagePath),
   }
 });

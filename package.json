@@ -1,6 +1,6 @@
 {
   "name": "switch-camera-control",
-  "version": "2.1.1",
+  "version": "2.4.0",
   "description": "Switch Camera Control - Network Device Monitoring Application",
   "main": "electron-prod.js",
   "scripts": {
